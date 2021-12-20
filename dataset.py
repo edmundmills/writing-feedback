@@ -9,6 +9,15 @@ class ArgumentDataset:
         self.data_path = Path('data')
         self.essay_dir = self.data_path / 'train'
         self.df = pd.read_csv(self.data_path / 'train.csv')
+        self.argument_types = (
+            'Lead',
+            'Position',
+            'Claim',
+            'Counterclaim',
+            'Rebuttal',
+            'Evidence',
+            'Concluding Statement'
+        )
 
     def __len__(self):
         return len(self.df)
@@ -33,9 +42,14 @@ class ArgumentDataset:
                 idx += 1
             yield self[init_idx:idx]
 
-    def arguments(self, number=None):
+    def arguments(self, number=None, arg_type=None):
         number = number or float('Inf')
-        return self[:number].iterrows()
+        if arg_type:
+            indices = self.df['discourse_type'] == arg_type
+            df = self.df[indices]
+        else:
+            df = self.df
+        return df.iloc[:number]
 
     def random_essay(self, num_essays=1) -> List[str]:
         essays = []
@@ -59,4 +73,3 @@ class ArgumentDataset:
                 span = ' '.join(words)
                 spans.append(span)
         return spans
-

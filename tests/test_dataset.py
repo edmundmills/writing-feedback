@@ -30,7 +30,11 @@ def test_essays():
 def test_arguments():
     dataset = ArgumentDataset()
     arguments = dataset.arguments(20)
-    assert(len(list(arguments)) == 20)
+    assert(len(arguments) == 20)
+    assert(sum(arguments.loc[:,'discourse_type'] == 'Claim') < 20)
+    arguments = dataset.arguments(20, arg_type='Claim')
+    assert(len(arguments) == 20)
+    assert(sum(arguments.loc[:,'discourse_type'] == 'Claim') == 20)
 
 def test_essay_paths():
     dataset = ArgumentDataset()
