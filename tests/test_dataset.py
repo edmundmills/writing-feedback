@@ -46,7 +46,11 @@ def test_random_essay():
     dataset = ArgumentDataset()
     random_essay = dataset.random_essay(num_essays=5)
     assert(len(random_essay) == 5)
-    assert(isinstance(random_essay[0], str))
+    assert(isinstance(random_essay[0], tuple))
+    assert(isinstance(random_essay[0][0], str))
+    assert(isinstance(random_essay[0][1], Path))
+    assert(isinstance(random_essay[0][2], str))
+    assert(isinstance(random_essay[0][3], pd.DataFrame))
 
 def test_random_span():
     dataset = ArgumentDataset()
@@ -54,4 +58,12 @@ def test_random_span():
     assert(len(random_span) == 10)
     assert(isinstance(random_span[0], str))
     assert(len(random_span[0].split()) == 5)
+
+def test_labels_by_id():
+    dataset = ArgumentDataset()
+    essays = dataset.essays(1)
+    essay = next(essays)
+    essay_id = essay.iloc[0].loc['id']
+    lookup_essay = dataset.labels_by_id(essay_id)
+    assert(essay.equals(lookup_essay))
 
