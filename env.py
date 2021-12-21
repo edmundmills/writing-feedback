@@ -4,7 +4,8 @@ import gym
 import torch
 
 from dataset import ArgumentDataset
-from utils import grade
+from utils.grading import grade
+from utils.text import to_sentences
 
 class AssigmentEnv(gym.Env):
     def __init__(self) -> None:
@@ -39,6 +40,7 @@ class AssigmentEnv(gym.Env):
         self.done = False
         self.reward = 0
         self.essay_id, self.essay_path, self.essay_text, self.essay_labels = self.dataset.random_essay()[0]
+        self.sentences = to_sentences(self.essay_text)
         self._position = 0
         self.sentence_state = None
         self.argument_state = None

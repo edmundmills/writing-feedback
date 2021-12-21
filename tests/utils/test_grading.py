@@ -1,5 +1,5 @@
 from dataset import ArgumentDataset
-from utils import *
+from utils.grading import *
 
 class TestIsMatch:
     def test_exact_match(self):

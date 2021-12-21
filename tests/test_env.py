@@ -1,13 +1,20 @@
-from env import *
+from pathlib import Path
 
+import pandas as pd
 import pytest
+
+from env import *
 
 def test_reset():
     env = AssigmentEnv()
     env.reset()
     assert(env.done == False)
     assert(env.reward == 0)
-    assert(env.essay is not None)
+    assert(isinstance(env.essay_id, str))
+    assert(isinstance(env.essay_text, str))
+    assert(isinstance(env.essay_path, Path))
+    assert(isinstance(env.essay_labels, pd.DataFrame))
+    assert(isinstance(env.sentences, list))
     position = torch.zeros(env.max_sentences)
     position[0] = 1
     assert(torch.equal(env.position, position))
