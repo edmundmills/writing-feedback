@@ -5,8 +5,8 @@ import random
 import transformers
 import torch
 
-from argument_model import ArgumentModel
-from dataset import ArgumentDataset
+from core.argument_model import ArgumentModel
+from core.dataset import ArgumentDataset
 
 from utils.config import parse_args, get_config, wandb_run
 

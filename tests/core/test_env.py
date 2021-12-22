@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from env import *
+from core.env import *
 
 def test_reset():
     env = AssigmentEnv()

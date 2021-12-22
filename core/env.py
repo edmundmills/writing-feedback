@@ -3,7 +3,7 @@ from functools import partial
 import gym
 import torch
 
-from dataset import ArgumentDataset
+from core.dataset import ArgumentDataset
 from utils.grading import grade
 from utils.text import to_sentences
 

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from dataset import *
+from core.dataset import *
 
 def test_init():
     dataset = ArgumentDataset()
