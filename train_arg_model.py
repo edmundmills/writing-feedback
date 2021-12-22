@@ -22,7 +22,8 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    train_dataset, val_dataset = ArgumentDataset.create_train_test_split(fraction=0.9)
+    dataset = ArgumentDataset()
+    train_dataset, val_dataset = dataset.make_arg_classification_datasets()
     arg_model = ArgumentModel()
     with wandb_run(args):
         arg_model.train(train_dataset, val_dataset, args)

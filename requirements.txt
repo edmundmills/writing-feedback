@@ -1,0 +1,6 @@
+flatten_dict
+gym
+hydra-core
+omegaconf
+sentence-transformers
+wandb
