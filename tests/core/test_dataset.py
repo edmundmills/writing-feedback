@@ -50,7 +50,7 @@ def test_arguments(dataset):
     assert(sum(arguments.loc[:,'discourse_type'] == 'Claim') == 20)
 
 def test_essay_paths(dataset):
-    paths = dataset.essay_paths()
+    paths = dataset.essay_paths
     assert(isinstance(paths[0], Path))
     assert(len(paths) == 15594)
 
@@ -84,3 +84,30 @@ def test_make_arg_class_dataset(fix_seed, dataset):
     assert(len(train) == 78)
     assert(isinstance(train[0][0], str))
     assert(isinstance(train[0][1], torch.Tensor))
+
+def test_open_essay(dataset):
+    essay_text, labels = dataset.open_essay('423A1CA112E2') 
+    assert(isinstance(essay_text, str))
+    assert(isinstance(labels, pd.DataFrame))
+    assert(len(essay_text) > 0)
+    assert(len(labels) > 0)
+
+def test_polarity_pairs():
+    dataset = ArgumentDataset()
+    pairs, labels = dataset.polarity_pairs('6B4F7A0165B9')
+    assert(isinstance(pairs, list))
+    assert(isinstance(labels, list))
+    assert(len(pairs) == len(labels))
+    assert(min(labels) >= -1)
+    assert(max(labels) <= 1)
+    for pair, label in zip(pairs, labels):
+        print(pair[0])
+        print(pair[1])
+        print(label)
+        print('---')
+
+def test_make_polarity_dataset():
+    dataset = ArgumentDataset()
+    train, val = dataset.make_polarity_dataset(n_essays=20)
+    assert(isinstance(train, ComparisonDataset))
+    assert(isinstance(val, ComparisonDataset))

@@ -1,3 +1,4 @@
+from itertools import permutations
 import random
 from pathlib import Path
 from typing import List, Tuple
@@ -25,7 +26,7 @@ def df_to_text_and_label(df):
     text = list(df.loc[:,'discourse_text'])
     labels = torch.LongTensor(list(argument_types[row.loc['discourse_type']] for _, row in df.iterrows()))
     return text, labels
-
+ 
 class ClassificationDataset:
     def __init__(self, text:List[str], labels:torch.Tensor):
         self.text = text
@@ -44,10 +45,10 @@ class ComparisonDataset:
         self.labels = labels
 
     def __getitem__(self, idx):
-        return self.text[idx], self.labels[idx, ...]
+        return self.text_pairs[idx], self.labels[idx, ...]
 
     def __len__(self):
-        return len(self.text)
+        return len(self.text_pairs)
 
 
 class ArgumentDataset:
@@ -62,6 +63,7 @@ class ArgumentDataset:
     def __getitem__(self, idx) -> pd.DataFrame:
         return self.df.iloc[idx]
 
+    @property
     def essay_paths(self) -> List[Path]:
         return list(self.essay_dir.iterdir())
 
@@ -90,18 +92,26 @@ class ArgumentDataset:
             df = self.df
         return df.iloc[:number]
 
-    def random_essay(self, num_essays=1) -> List[str]:
+    def open_essay(self, essay_id):
+        path = self.data_path / 'train' / f'{essay_id}.txt'
+        with open(path) as f:
+            essay_text = f.read()
+            essay_labels = self.labels_by_id(essay_id)
+        return essay_text, essay_labels
+
+    def random_essay(self, num_essays=1, essay_list=None) -> List[str]:
+        essay_paths = essay_list or self.essay_paths
         essays = []
-        for essay_path in random.sample(self.essay_paths(), num_essays):
-            with open(essay_path) as f:
-                essay_id = essay_path.stem
-                essay_text = f.read()
-                essay_labels = self.labels_by_id(essay_id)
-                essays.append((essay_id,
-                               essay_path,
-                               essay_text,
-                               essay_labels))
+        for essay_path in random.choices(essay_paths, k=num_essays):
+            essay_id = essay_path.stem
+            essays.append((essay_id, essay_path, *self.open_essay(essay_id)))
         return essays
+
+    def random_argument(self, num_args=1, essay_list=None):
+        essays = self.random_essay(num_essays=num_args, essay_list=essay_list)
+        random_args = [random.choices(list(labels.loc[:,'discourse_text']), k=1)
+                       for _, _, _, labels in essays]
+        return random_args
 
     def random_span(self, num_words, num_spans=1):
         spans = []
@@ -124,4 +134,76 @@ class ArgumentDataset:
         val_text, val_labels = df_to_text_and_label(val_df)
         return ClassificationDataset(train_text, train_labels), ClassificationDataset(val_text, val_labels)
 
+    def make_polarity_dataset(self, train_val_split=0.9, n_essays=None):
+        n_essays = n_essays or len(self.essay_paths)
+        n_train_essays = int(n_essays * train_val_split)
+        essays = self.essay_paths.copy()
+        essays = essays[:n_essays]
+        random.shuffle(essays)
+        train_text_pairs = []
+        train_labels = []
+        val_text_pairs = []
+        val_labels = []
+        for idx, essay in enumerate(essays):
+            essay_id = essay.stem
+            if idx <= n_train_essays:
+                pairs, labels = self.polarity_pairs(essay_id, essays[:n_train_essays])
+                train_text_pairs.extend(pairs)
+                train_labels.extend(labels)
+            else:
+                pairs, labels = self.polarity_pairs(essay_id, essays[n_train_essays:])
+                val_text_pairs.extend(pairs)
+                val_labels.extend(labels)
+        return ComparisonDataset(train_text_pairs, train_labels), ComparisonDataset(val_text_pairs, val_labels)
 
+    def polarity_pairs(self, essay_id, reference_essay_list=None):
+        _, essay_labels = self.open_essay(essay_id)
+        text_pairs = []
+        labels = []
+        position = essay_labels[essay_labels['discourse_type']=='Position']
+        position_text = position.iloc[0]['discourse_text'] if len(position) > 0 else None
+        conclusion = essay_labels[essay_labels['discourse_type']=='Concluding Statement']
+        conclusion_text = conclusion.iloc[0]['discourse_text']  if len(conclusion) > 0 else None
+        claims = list(essay_labels[essay_labels['discourse_type']=='Claim']['discourse_text'])
+        counterclaims = list(essay_labels[essay_labels['discourse_type']=='Counterclaim']['discourse_text'])
+        evidence = list(essay_labels[essay_labels['discourse_type']=='Evidence']['discourse_text'])
+        prev_row = None
+        for _, row in essay_labels.iterrows():
+            if prev_row is not None:
+                if prev_row['discourse_type'] == 'Claim' and row['discourse_type'] == 'Evidence':
+                    text_pairs.append((prev_row['discourse_text'], row['discourse_text']))
+                    labels.append(1)
+                elif prev_row['discourse_type'] == 'Claim' and row['discourse_type'] == 'Counterclaim':
+                    text_pairs.append((prev_row['discourse_text'], row['discourse_text']))
+                    labels.append(-1)
+                elif prev_row['discourse_type'] == 'Counterclaim' and row['discourse_type'] == 'Rebuttal':
+                    text_pairs.append((prev_row['discourse_text'], row['discourse_text']))
+                    labels.append(-1)
+            prev_row = row
+        if position_text:
+            text_pairs.extend(((position_text, claim) for claim in claims))
+            labels.extend(1 for _ in claims)
+            text_pairs.extend(((position_text, claim) for claim in counterclaims))
+            labels.extend(-1 for _ in counterclaims)
+        if conclusion_text:
+            text_pairs.extend(((conclusion_text, claim) for claim in claims))
+            labels.extend(1 for _ in claims)
+            text_pairs.extend(((conclusion_text, claim) for claim in counterclaims))
+            labels.extend(-1 for _ in counterclaims)
+        if evidence and len(evidence) >= 2:
+            evidence_pairs = permutations(evidence, 2)
+            text_pairs.extend(evidence_pairs)
+            labels.extend(0 for _ in evidence_pairs)
+        reference_essay_list = reference_essay_list or self.essay_paths
+        random_args = self.random_argument(num_args=len(text_pairs), essay_list=reference_essay_list)
+        essay_args = list(essay_labels.loc[:,'discourse_text'])
+        rand_essay_args = random.choices(essay_args, k=len(random_args))
+        rand_first = random.choices((True, False), k=len(random_args))
+        for rand_first, random_arg, rand_essay_arg in zip(rand_first, random_args, rand_essay_args):
+            if rand_first:
+                pair = (random_arg, rand_essay_arg)
+            else:
+                pair = (rand_essay_arg, random_arg)
+            text_pairs.append(pair)
+            labels.append(0)
+        return text_pairs, labels
