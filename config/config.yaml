@@ -1,7 +1,9 @@
 name: train_arg_model
 
 epochs: 2
-lr: 5e-5
+encoder_lr: 5e-5
+type_lr: 1e-3
+polarity_lr: 1e-3
 batch_size: 32
 
 batches_per_eval: 16

@@ -166,12 +166,14 @@ class ArgumentModel(nn.Module):
               polarity_train_dataset, polarity_val_dataset,
               args):
         epochs = args.epochs
-        lr = args.lr
         batch_size = args.batch_size
 
         self.encoder.train()
 
-        optimizer = AdamW(self.parameters(), lr=lr)
+        optimizer = AdamW([{'params': self.encoder.parameters(), 'lr': args.encoder_lr},
+                          {'params': self.type_classifier.parameters(), 'lr': args.type_lr},
+                          {'params': self.polarity.parameters(), 'lr': args.polarity_lr}],
+                          lr=args.encoder_lr)
         class_dataloader = DataLoader(class_train_dataset,
                                 batch_size=batch_size,
                                 num_workers=4,
