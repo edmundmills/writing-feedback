@@ -109,7 +109,7 @@ class ArgumentDataset:
 
     def random_argument(self, num_args=1, essay_list=None):
         essays = self.random_essay(num_essays=num_args, essay_list=essay_list)
-        random_args = [random.choices(list(labels.loc[:,'discourse_text']), k=1)
+        random_args = [random.choices(list(labels.loc[:,'discourse_text']), k=1)[0]
                        for _, _, _, labels in essays]
         return random_args
 
@@ -129,13 +129,16 @@ class ArgumentDataset:
         return spans
 
     def make_arg_classification_datasets(self, train_val_split=0.9) -> Tuple[ClassificationDataset, ClassificationDataset]:
+        print('Making Argmument Classification Dataset')
         train_df, val_df = df_train_val_split(self.df, train_val_split)
         train_text, train_labels = df_to_text_and_label(train_df)
         val_text, val_labels = df_to_text_and_label(val_df)
+        print(f'Argument Classification Dataset Created with {len(train_text)} training samples and {len(val_text)} validation samples')
         return ClassificationDataset(train_text, train_labels), ClassificationDataset(val_text, val_labels)
 
     def make_polarity_dataset(self, train_val_split=0.9, n_essays=None):
         n_essays = n_essays or len(self.essay_paths)
+        print(f'Making polarity dataset for {n_essays} essays')
         n_train_essays = int(n_essays * train_val_split)
         essays = self.essay_paths.copy()
         essays = essays[:n_essays]
@@ -154,6 +157,9 @@ class ArgumentDataset:
                 pairs, labels = self.polarity_pairs(essay_id, essays[n_train_essays:])
                 val_text_pairs.extend(pairs)
                 val_labels.extend(labels)
+        train_labels = torch.FloatTensor(train_labels)
+        val_labels = torch.FloatTensor(val_labels)
+        print(f'Polarity Dataset Created with {len(train_text_pairs)} training pairs and {len(val_text_pairs)} validation pairs')
         return ComparisonDataset(train_text_pairs, train_labels), ComparisonDataset(val_text_pairs, val_labels)
 
     def polarity_pairs(self, essay_id, reference_essay_list=None):
@@ -191,9 +197,8 @@ class ArgumentDataset:
             text_pairs.extend(((conclusion_text, claim) for claim in counterclaims))
             labels.extend(-1 for _ in counterclaims)
         if evidence and len(evidence) >= 2:
-            evidence_pairs = permutations(evidence, 2)
-            text_pairs.extend(evidence_pairs)
-            labels.extend(0 for _ in evidence_pairs)
+            text_pairs.extend(permutations(evidence, 2))
+            labels.extend(0 for _ in permutations(evidence, 2))
         reference_essay_list = reference_essay_list or self.essay_paths
         random_args = self.random_argument(num_args=len(text_pairs), essay_list=reference_essay_list)
         essay_args = list(essay_labels.loc[:,'discourse_text'])
