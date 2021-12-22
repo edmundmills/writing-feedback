@@ -1,3 +1,6 @@
+from collections import deque
+import time
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from transformers import AdamW
@@ -181,7 +184,11 @@ class ArgumentModel(nn.Module):
                                     drop_last=True,
                                     sampler=RandomSampler(polarity_train_dataset))
             return iter(polarity_dataloader)
+        
         polarity_iter = init_polarity_iter()
+
+        running_loss = deque(maxlen=args.print_interval)
+        timestamps = deque(maxlen=args.print_interval)
 
         for epoch in range(1, epochs + 1):
             print(f'Starting Epoch {epoch}')
@@ -212,17 +219,20 @@ class ArgumentModel(nn.Module):
 
                 d_step = step + 1
                 loss = loss.item()
+                running_loss.append(loss)
+                timestamps.append(time.time())
                 metrics = {
                     'Train Type Classification Loss': class_loss.item(),
                     'Train Polarity Assessment Loss': polarity_loss.item(),
                     'Total Train Loss': loss,
                 }
 
-                if d_step % 50 == 0:
-                    print(f'Step {d_step}:\t Loss: {loss:.3f}')
+                if d_step % args.print_interval == 0:
+                    print(f'Step {d_step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
+                          f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
 
-                if d_step % 100 == 0:
-                    eval_metrics = self.evaluate(class_val_dataset, polarity_val_dataset, args, n_samples=(args.batch_size * 4))
+                if d_step % args.eval_interval == 0:
+                    eval_metrics = self.evaluate(class_val_dataset, polarity_val_dataset, args, n_samples=(args.batch_size * args.batches_per_eval))
                     metrics.update(eval_metrics)
                     print(f'Step {d_step}:\t{eval_metrics}')
 
