@@ -1,23 +1,60 @@
 import random
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
+import numpy as np
 import pandas as pd
+import torch
+import torch.nn.functional as F
+
+argument_types = {
+            'Lead': 0,
+            'Position': 1,
+            'Claim': 2,
+            'Counterclaim': 3,
+            'Rebuttal': 4,
+            'Evidence': 5,
+            'Concluding Statement': 6
+        }
+
+def df_train_val_split(df, train_val_split):
+    msk = np.random.randn(len(df)) < train_val_split
+    return df[msk], df[~msk]
+
+def df_to_text_and_label(df):
+    text = list(df.loc[:,'discourse_text'])
+    labels = torch.LongTensor(list(argument_types[row.loc['discourse_type']] for _, row in df.iterrows()))
+    return text, labels
+
+class ClassificationDataset:
+    def __init__(self, text:List[str], labels:torch.Tensor):
+        self.text = text
+        self.labels = labels
+
+    def __getitem__(self, idx):
+        return self.text[idx], self.labels[idx, ...]
+
+    def __len__(self):
+        return len(self.text)
+
+
+class ComparisonDataset:
+    def __init__(self, text_pairs:List[Tuple[str]], labels:torch.Tensor):
+        self.text_pairs = text_pairs
+        self.labels = labels
+
+    def __getitem__(self, idx):
+        return self.text[idx], self.labels[idx, ...]
+
+    def __len__(self):
+        return len(self.text)
+
 
 class ArgumentDataset:
     def __init__(self) -> None:
         self.data_path = Path('data')
         self.essay_dir = self.data_path / 'train'
         self.df = pd.read_csv(self.data_path / 'train.csv')
-        self.argument_types = (
-            'Lead',
-            'Position',
-            'Claim',
-            'Counterclaim',
-            'Rebuttal',
-            'Evidence',
-            'Concluding Statement'
-        )
 
     def __len__(self):
         return len(self.df)
@@ -80,3 +117,11 @@ class ArgumentDataset:
                 span = ' '.join(words)
                 spans.append(span)
         return spans
+
+    def make_arg_classification_datasets(self, train_val_split=0.9) -> Tuple[ClassificationDataset, ClassificationDataset]:
+        train_df, val_df = df_train_val_split(self.df, train_val_split)
+        train_text, train_labels = df_to_text_and_label(train_df)
+        val_text, val_labels = df_to_text_and_label(val_df)
+        return ClassificationDataset(train_text, train_labels), ClassificationDataset(val_text, val_labels)
+
+

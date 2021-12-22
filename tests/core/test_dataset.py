@@ -1,8 +1,26 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from core.dataset import *
+
+def test_df_train_val_split(fix_seed):
+    df = pd.DataFrame(np.random.randn(100, 2))
+    train, val = df_train_val_split(df, 0.8)
+    assert(isinstance(train, pd.DataFrame))
+    assert(isinstance(val, pd.DataFrame))
+    assert(len(train) == 86)
+    assert(len(val) == 14)
+
+def test_df_to_text_and_label():
+    dataset = ArgumentDataset()
+    df = dataset[:10]
+    text, label = df_to_text_and_label(df)
+    assert(len(text) == 10)
+    assert(isinstance(text, list))
+    assert(isinstance(text[0], str))
+    assert(isinstance(label, torch.Tensor))
 
 def test_init():
     dataset = ArgumentDataset()
@@ -67,3 +85,12 @@ def test_labels_by_id():
     lookup_essay = dataset.labels_by_id(essay_id)
     assert(essay.equals(lookup_essay))
 
+def test_make_arg_class_dataset(fix_seed):
+    dataset = ArgumentDataset()
+    train, val = dataset.make_arg_classification_datasets()
+    assert(isinstance(train, ClassificationDataset))
+    assert(isinstance(val, ClassificationDataset))
+    assert(len(train) + len(val) == len(dataset))
+    assert(len(train) == 117718)
+    assert(isinstance(train[0][0], str))
+    assert(isinstance(train[0][1], torch.Tensor))

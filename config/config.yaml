@@ -6,3 +6,4 @@ batch_size: 32
 
 
 debug: False
+seed: 0
