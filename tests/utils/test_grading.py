@@ -2,8 +2,7 @@ from core.dataset import ArgumentDataset
 from utils.grading import *
 
 class TestIsMatch:
-    def test_exact_match(self):
-        dataset = ArgumentDataset()
+    def test_exact_match(self, dataset):
         essay = next(dataset.essays())
         prediction = {
             'id': 0,
@@ -12,8 +11,7 @@ class TestIsMatch:
         }
         assert(ismatch(prediction, essay.iloc[0]))
 
-    def test_short_match(self):
-        dataset = ArgumentDataset()
+    def test_short_match(self, dataset):
         essay = next(dataset.essays())
         prediction = {
             'id': 0,
@@ -22,8 +20,7 @@ class TestIsMatch:
         }
         assert(ismatch(prediction, essay.iloc[0]))
 
-    def test_long_match(self):
-        dataset = ArgumentDataset()
+    def test_long_match(self, dataset):
         essay = next(dataset.essays())
         prediction = {
             'id': 0,
@@ -32,8 +29,7 @@ class TestIsMatch:
         }
         assert(ismatch(prediction, essay.iloc[0]))
 
-    def test_short_nonmatch(self):
-        dataset = ArgumentDataset()
+    def test_short_nonmatch(self, dataset):
         essay = next(dataset.essays())
         prediction = {
             'id': 0,
@@ -42,8 +38,7 @@ class TestIsMatch:
         }
         assert(not ismatch(prediction, essay.iloc[0]))
 
-    def test_long_nonmatch(self):
-        dataset = ArgumentDataset()
+    def test_long_nonmatch(self, dataset):
         essay = next(dataset.essays())
         prediction = {
             'id': 0,
@@ -52,8 +47,7 @@ class TestIsMatch:
         }
         assert(not ismatch(prediction, essay.iloc[0]))
 
-    def test_other_label(self):
-        dataset = ArgumentDataset()
+    def test_other_label(self, dataset):
         essay = next(dataset.essays())
         prediction = {
                 'id': 0,
@@ -64,8 +58,7 @@ class TestIsMatch:
 
 
 class TestGrade:
-    def test_single_prediction(self):
-        dataset = ArgumentDataset()
+    def test_single_prediction(self, dataset):
         essay = next(dataset.essays())
         predictions = [
             {
@@ -80,8 +73,7 @@ class TestGrade:
         assert(metrics['false_positives'] == 0)
         assert(metrics['false_negatives'] == 9)
 
-    def test_two_predictions(self):
-        dataset = ArgumentDataset()
+    def test_two_predictions(self, dataset):
         essay = next(dataset.essays())
         predictions = [
             {
@@ -101,8 +93,7 @@ class TestGrade:
         assert(metrics['false_positives'] == 0)
         assert(metrics['false_negatives'] == 8)
 
-    def test_mixed_predictions(self):
-        dataset = ArgumentDataset()
+    def test_mixed_predictions(self, dataset):
         essay = next(dataset.essays())
         predictions = [
             {
@@ -127,8 +118,7 @@ class TestGrade:
         assert(metrics['false_positives'] == 1)
         assert(metrics['false_negatives'] == 8)
 
-    def test_all_wrong(self):
-        dataset = ArgumentDataset()
+    def test_all_wrong(self, dataset):
         essay = next(dataset.essays())
         predictions = [
             {
@@ -153,8 +143,7 @@ class TestGrade:
         assert(metrics['false_positives'] == 3)
         assert(metrics['false_negatives'] == 10)
  
-    def test_duplicate_right(self):
-        dataset = ArgumentDataset()
+    def test_duplicate_right(self, dataset):
         essay = next(dataset.essays())
         predictions = [
             {

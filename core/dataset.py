@@ -51,10 +51,10 @@ class ComparisonDataset:
 
 
 class ArgumentDataset:
-    def __init__(self) -> None:
+    def __init__(self, nrows=None) -> None:
         self.data_path = Path('data')
         self.essay_dir = self.data_path / 'train'
-        self.df = pd.read_csv(self.data_path / 'train.csv')
+        self.df = pd.read_csv(self.data_path / 'train.csv', nrows=nrows)
 
     def __len__(self):
         return len(self.df)

@@ -8,7 +8,7 @@ from utils.grading import grade
 from utils.text import to_sentences
 
 class AssigmentEnv(gym.Env):
-    def __init__(self) -> None:
+    def __init__(self, dataset_rows=None) -> None:
         super().__init__()
         self.actions = {
             0: self._move_up,
@@ -32,7 +32,7 @@ class AssigmentEnv(gym.Env):
         self.reward = None
         self.done = None
         print('Loading Dataset')
-        self.dataset = ArgumentDataset()
+        self.dataset = ArgumentDataset(nrows=dataset_rows)
         print('Dataset Loaded')
         self.max_sentences = 60
         self.max_args = 20

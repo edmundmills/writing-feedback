@@ -13,8 +13,7 @@ def test_df_train_val_split(fix_seed):
     assert(len(train) == 86)
     assert(len(val) == 14)
 
-def test_df_to_text_and_label():
-    dataset = ArgumentDataset()
+def test_df_to_text_and_label(dataset):
     df = dataset[:10]
     text, label = df_to_text_and_label(df)
     assert(len(text) == 10)
@@ -22,17 +21,14 @@ def test_df_to_text_and_label():
     assert(isinstance(text[0], str))
     assert(isinstance(label, torch.Tensor))
 
-def test_init():
-    dataset = ArgumentDataset()
-    assert(len(dataset) == 144293)
+def test_init(dataset):
+    assert(len(dataset) == 100)
 
-def test_idx():
-    dataset = ArgumentDataset()
+def test_idx(dataset):
     row = dataset[0:10]
     assert(len(row) == 10)
 
-def test_essays():
-    dataset = ArgumentDataset()
+def test_essays(dataset):
     essays = dataset.essays(10)
     essay = next(essays)
     assert(isinstance(essay, pd.DataFrame))
@@ -45,8 +41,7 @@ def test_essays():
     essay_count = sum(1 for _ in dataset.essays(10))
     assert(essay_count == 10)
 
-def test_arguments():
-    dataset = ArgumentDataset()
+def test_arguments(dataset):
     arguments = dataset.arguments(20)
     assert(len(arguments) == 20)
     assert(sum(arguments.loc[:,'discourse_type'] == 'Claim') < 20)
@@ -54,14 +49,12 @@ def test_arguments():
     assert(len(arguments) == 20)
     assert(sum(arguments.loc[:,'discourse_type'] == 'Claim') == 20)
 
-def test_essay_paths():
-    dataset = ArgumentDataset()
+def test_essay_paths(dataset):
     paths = dataset.essay_paths()
     assert(isinstance(paths[0], Path))
     assert(len(paths) == 15594)
 
-def test_random_essay():
-    dataset = ArgumentDataset()
+def test_random_essay(dataset):
     random_essay = dataset.random_essay(num_essays=5)
     assert(len(random_essay) == 5)
     assert(isinstance(random_essay[0], tuple))
@@ -70,27 +63,24 @@ def test_random_essay():
     assert(isinstance(random_essay[0][2], str))
     assert(isinstance(random_essay[0][3], pd.DataFrame))
 
-def test_random_span():
-    dataset = ArgumentDataset()
+def test_random_span(dataset):
     random_span = dataset.random_span(num_words=5, num_spans=10)
     assert(len(random_span) == 10)
     assert(isinstance(random_span[0], str))
     assert(len(random_span[0].split()) == 5)
 
-def test_labels_by_id():
-    dataset = ArgumentDataset()
+def test_labels_by_id(dataset):
     essays = dataset.essays(1)
     essay = next(essays)
     essay_id = essay.iloc[0].loc['id']
     lookup_essay = dataset.labels_by_id(essay_id)
     assert(essay.equals(lookup_essay))
 
-def test_make_arg_class_dataset(fix_seed):
-    dataset = ArgumentDataset()
+def test_make_arg_class_dataset(fix_seed, dataset):
     train, val = dataset.make_arg_classification_datasets()
     assert(isinstance(train, ClassificationDataset))
     assert(isinstance(val, ClassificationDataset))
     assert(len(train) + len(val) == len(dataset))
-    assert(len(train) == 117718)
+    assert(len(train) == 78)
     assert(isinstance(train[0][0], str))
     assert(isinstance(train[0][1], torch.Tensor))
