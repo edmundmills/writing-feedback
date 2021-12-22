@@ -11,30 +11,31 @@ class AssigmentEnv(gym.Env):
     def __init__(self) -> None:
         super().__init__()
         self.actions = {
-            0: ('Up', self._move_up),
-            1: ('Down', self._move_down),
-            2: ('Merge', self._merge),
-            3: ('Split', self._split),
-            4: ('Lead', partial(self._assign, 'Lead')),
-            5: ('Position', partial(self._assign, 'Position')),
-            6: ('Claim', partial(self._assign, 'Claim')),
-            7: ('Counterclaim', partial(self._assign, 'Counterclaim')),
-            8: ('Rebuttal', partial(self._assign, 'Rebuttal')),
-            9: ('Evidence', partial(self._assign, 'Evidence')),
-            10: ('Concluding Statement', partial(self._assign, 'Concluding Statement')),
-            11: ('Unlabel', partial(self._assign, None)),
-            12: ('End', self._end)
+            0: self._move_up,
+            1: self._move_down,
+            2: self._merge,
+            3: self._split,
+            4: self._advance,
+            5: partial(self._assign, 'Lead'),
+            6: partial(self._assign, 'Position'),
+            7: partial(self._assign, 'Claim'),
+            8: partial(self._assign, 'Counterclaim'),
+            9: partial(self._assign, 'Rebuttal'),
+            10: partial(self._assign, 'Evidence'),
+            11: partial(self._assign, 'Concluding Statement'),
+            12: partial(self._assign, None),
+            13: self._end
         }
         self.sentence_state = None
         self.argument_state = None
         self._position = None
-        self.essay = None
         self.reward = None
         self.done = None
         print('Loading Dataset')
         self.dataset = ArgumentDataset()
         print('Dataset Loaded')
-        self.max_sentences = 30
+        self.max_sentences = 60
+        self.max_args = 20
 
     def reset(self):
         self.done = False
@@ -61,7 +62,7 @@ class AssigmentEnv(gym.Env):
         if action not in self.actions:
             raise ValueError('Action not in available actions')
         else:
-            func = self.actions[action][1]
+            func = self.actions[action]
             func()
         return self.state, self.reward, self.done
 
@@ -76,10 +77,13 @@ class AssigmentEnv(gym.Env):
     def _merge(self):
         pass
 
-    def _assign(self, label):
+    def _advance(self):
         pass
 
     def _split(self):
+        pass
+
+    def _assign(self, label):
         pass
 
     def _end(self):

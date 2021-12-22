@@ -69,5 +69,5 @@ class TestStep:
     def test_end(self):
         env = AssigmentEnv()
         env.reset()
-        env.step(12)
+        env.step(13)
         assert(env.done == True)
