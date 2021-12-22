@@ -23,7 +23,10 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(args.seed)
 
     dataset = ArgumentDataset()
-    train_dataset, val_dataset = dataset.make_arg_classification_datasets()
+    class_train_dataset, class_val_dataset = dataset.make_arg_classification_datasets()
+    polarity_train_dataset, polarity_val_dataset = dataset.make_polarity_dataset(n_essays=100)
     arg_model = ArgumentModel()
     with wandb_run(args):
-        arg_model.train(train_dataset, val_dataset, args)
+        arg_model.train(class_train_dataset, class_val_dataset,
+                        polarity_train_dataset, polarity_val_dataset,
+                        args)

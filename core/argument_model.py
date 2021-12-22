@@ -88,7 +88,12 @@ class ArgumentModel(nn.Module):
     def encode(self, argument):
         return self.encoder.encode(argument, convert_to_numpy=False, convert_to_tensor=True)
 
-    def eval(self, dataset, args, n_samples=None):
+    def evaluate(self, class_dataset, polarity_dataset, args, n_samples=None):
+        class_eval_metrics = self.eval_classifier(class_dataset, args, n_samples)
+        polarity_eval_metrics = self.eval_polarity(polarity_dataset, args, n_samples)
+        return {**class_eval_metrics, **polarity_eval_metrics}
+
+    def eval_classifier(self, dataset, args, n_samples=None):
         n_samples = n_samples or len(dataset)
         self.encoder.eval()
         dataloader = DataLoader(dataset,
@@ -114,9 +119,49 @@ class ArgumentModel(nn.Module):
         avg_loss = sum(losses) / len(losses)
         avg_acc = sum(accuracy) / len(accuracy)
         self.encoder.train()
-        return {'Eval Loss': avg_loss, 'Eval Accuracy': avg_acc}
+        return {'Eval Loss (Type Classifier)': avg_loss,
+                'Eval Accuracy (Type Classifier)': avg_acc}
+
+    def eval_polarity(self, dataset, args, n_samples=None):
+        n_samples = n_samples or len(dataset)
+        self.encoder.eval()
+        dataloader = DataLoader(dataset,
+                                batch_size=args.batch_size,
+                                num_workers=4,
+                                drop_last=True,
+                                sampler=SequentialSampler(dataset))
+        losses = []
+        accuracy = []
+        for step, (sample, label) in enumerate(dataloader):
+            gpu_label = label.to(self.device)
+            with torch.no_grad():
+                encodings1 = self.encode(sample[0])
+                encodings2 = self.encode(sample[1])
+                output = self.polarity(encodings1, encodings2).squeeze()
+                loss = F.mse_loss(output, gpu_label)
+            losses.append(loss.item())
+            output = output.cpu().numpy()
+            def polarity_eval(x):
+                if x > (1/3):
+                    return 1
+                elif x < (-1/3):
+                    return -1
+                else:
+                    return 0
+            pred = np.array([polarity_eval(pred) for pred in output])
+            label = label.numpy().squeeze()
+            accuracy.append(sum(np.equal(pred, label)) / len(sample[0]))
+            if (step + 1) * args.batch_size >= n_samples:
+                break
+        avg_loss = sum(losses) / len(losses)
+        avg_acc = sum(accuracy) / len(accuracy)
+        self.encoder.train()
+        return {'Eval Loss (Polarity)': avg_loss, 'Eval Accuracy (Polarity)': avg_acc}
     
-    def train(self, train_dataset, val_dataset, args):
+    def train(self,
+              class_train_dataset, class_val_dataset,
+              polarity_train_dataset, polarity_val_dataset,
+              args):
         epochs = args.epochs
         lr = args.lr
         batch_size = args.batch_size
@@ -124,34 +169,60 @@ class ArgumentModel(nn.Module):
         self.encoder.train()
 
         optimizer = AdamW(self.parameters(), lr=lr)
-        dataloader = DataLoader(train_dataset,
+        class_dataloader = DataLoader(class_train_dataset,
                                 batch_size=batch_size,
                                 num_workers=4,
                                 drop_last=True,
-                                sampler=RandomSampler(train_dataset))
+                                sampler=RandomSampler(class_train_dataset))
+        def init_polarity_iter():
+            polarity_dataloader = DataLoader(polarity_train_dataset,
+                                    batch_size=batch_size,
+                                    num_workers=4,
+                                    drop_last=True,
+                                    sampler=RandomSampler(polarity_train_dataset))
+            return iter(polarity_dataloader)
+        polarity_iter = init_polarity_iter()
+
         for epoch in range(1, epochs + 1):
             print(f'Starting Epoch {epoch}')
-            for step, (samples, labels) in enumerate(dataloader):
-                labels = labels.to(self.device)
+            for step, (class_samples, class_labels) in enumerate(class_dataloader):
+                try:
+                    polarity_samples, polarity_labels = next(polarity_iter)
+                except StopIteration:
+                    polarity_iter = init_polarity_iter()
+                    polarity_samples, polarity_labels = next(polarity_iter)
 
-                encoded_samples = self.encode(samples)
-                logits = self.type_classifier(encoded_samples)
+                class_labels = class_labels.to(self.device)
+                polarity_labels = polarity_labels.to(self.device)
 
-                loss = F.cross_entropy(logits, labels)
+                encoded_class_samples = self.encode(class_samples)
+                class_logits = self.type_classifier(encoded_class_samples)
+                class_loss = F.cross_entropy(class_logits, class_labels)
 
+                encodings1 = self.encode(polarity_samples[0])
+                encodings2 = self.encode(polarity_samples[1])
+                output = self.polarity(encodings1, encodings2).squeeze()
+                polarity_loss = F.mse_loss(output, polarity_labels)
+
+                loss = class_loss + polarity_loss
                 optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
                 optimizer.step()
 
                 d_step = step + 1
-                metrics = {'Train Loss': loss}
+                loss = loss.item()
+                metrics = {
+                    'Train Type Classification Loss': class_loss.item(),
+                    'Train Polarity Assessment Loss': polarity_loss.item(),
+                    'Total Train Loss': loss,
+                }
 
                 if d_step % 50 == 0:
                     print(f'Step {d_step}:\t Loss: {loss:.3f}')
 
-                if d_step % 50 == 0:
-                    eval_metrics = self.eval(val_dataset, args, n_samples=(args.batch_size * 4))
+                if d_step % 100 == 0:
+                    eval_metrics = self.evaluate(class_val_dataset, polarity_val_dataset, args, n_samples=(args.batch_size * 4))
                     metrics.update(eval_metrics)
                     print(f'Step {d_step}:\t{eval_metrics}')
 
