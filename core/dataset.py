@@ -200,7 +200,7 @@ class ArgumentDataset:
             text_pairs.extend(permutations(evidence, 2))
             labels.extend(0 for _ in permutations(evidence, 2))
         reference_essay_list = reference_essay_list or self.essay_paths
-        random_args = self.random_argument(num_args=len(text_pairs), essay_list=reference_essay_list)
+        random_args = self.random_argument(num_args=int(len(text_pairs)/2), essay_list=reference_essay_list)
         essay_args = list(essay_labels.loc[:,'discourse_text'])
         rand_essay_args = random.choices(essay_args, k=len(random_args))
         rand_first = random.choices((True, False), k=len(random_args))

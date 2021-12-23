@@ -238,6 +238,6 @@ class ArgumentModel(nn.Module):
                     metrics.update(eval_metrics)
                     print(f'Step {d_step}:\t{eval_metrics}')
 
-                wandb.log(metrics, step=step)
+                wandb.log(metrics)
 
 
