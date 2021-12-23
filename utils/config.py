@@ -25,14 +25,17 @@ class wandb_run:
         self.args = args
 
     def __enter__(self):
-        if not self.args.debug:
+        project = self.args.name
+        if self.args.debug:
+            project += '-debug'
+        if self.args.wandb:
             wandb.init(
                 entity='writing-feedback',
-                project=self.args.name,
+                project=project,
                 notes="",
                 config=flatten_args(self.args),
             )
 
     def __exit__(self, exc_type, exc_value, exc_tb):
-        if not self.args.debug:
+        if self.args.wandb:
             wandb.finish()

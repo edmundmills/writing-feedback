@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 import wandb
 
+from core.dataset import argument_names
 
 class MLP(nn.Module):
     def __init__(self, n_inputs, n_outputs, n_layers, layer_size, output_mod=None):
@@ -105,7 +106,8 @@ class ArgumentModel(nn.Module):
                                 drop_last=True,
                                 sampler=SequentialSampler(dataset))
         losses = []
-        accuracy = []
+        preds = []
+        labels = []
         for step, (sample, label) in enumerate(dataloader):
             gpu_label = label.to(self.device)
             with torch.no_grad():
@@ -116,14 +118,17 @@ class ArgumentModel(nn.Module):
             logits = logits.cpu().numpy()
             pred = np.argmax(logits, axis=1).squeeze()
             label = label.numpy().squeeze()
-            accuracy.append(sum(np.equal(pred, label)) / len(sample))
+            preds.extend(pred)
+            labels.extend(label)
             if (step + 1) * args.batch_size >= n_samples:
                 break
         avg_loss = sum(losses) / len(losses)
-        avg_acc = sum(accuracy) / len(accuracy)
+        avg_acc = sum(np.equal(pred, label)) / len(pred)
         self.encoder.train()
-        return {'Eval Loss (Type Classifier)': avg_loss,
-                'Eval Accuracy (Type Classifier)': avg_acc}
+        confusion_matrix = wandb.plot.confusion_matrix(y_true=labels, preds=preds, class_names=argument_names)
+        return {'Type Classifier/Eval Loss': avg_loss,
+                'Type Classifier/Eval Accuracy': avg_acc,
+                'Type Classifier/Confusion Matrix': confusion_matrix}
 
     def eval_polarity(self, dataset, args, n_samples=None):
         n_samples = n_samples or len(dataset)
@@ -134,7 +139,8 @@ class ArgumentModel(nn.Module):
                                 drop_last=True,
                                 sampler=SequentialSampler(dataset))
         losses = []
-        accuracy = []
+        labels = []
+        preds = []
         for step, (sample, label) in enumerate(dataloader):
             gpu_label = label.to(self.device)
             with torch.no_grad():
@@ -146,20 +152,22 @@ class ArgumentModel(nn.Module):
             output = output.cpu().numpy()
             def polarity_eval(x):
                 if x > (1/3):
-                    return 1
+                    return 2
                 elif x < (-1/3):
-                    return -1
-                else:
                     return 0
-            pred = np.array([polarity_eval(pred) for pred in output])
-            label = label.numpy().squeeze()
-            accuracy.append(sum(np.equal(pred, label)) / len(sample[0]))
+                else:
+                    return 1
+            preds.extend([polarity_eval(pred) for pred in output])
+            labels.extend([polarity + 1 for polarity in label.numpy().squeeze()])
             if (step + 1) * args.batch_size >= n_samples:
                 break
         avg_loss = sum(losses) / len(losses)
-        avg_acc = sum(accuracy) / len(accuracy)
+        accuracy = sum(np.equal(preds, labels)) / len(preds)
         self.encoder.train()
-        return {'Eval Loss (Polarity)': avg_loss, 'Eval Accuracy (Polarity)': avg_acc}
+        confusion_matrix = wandb.plot.confusion_matrix(y_true=labels, preds=preds, class_names=['None', 'Supporting', 'Contradicting'])
+        return {'Polarity/Eval Loss': avg_loss,
+                'Polarity/Eval Accuracy': accuracy,
+                'Polarity/Confusion Matrix': confusion_matrix}
     
     def train(self,
               class_train_dataset, class_val_dataset,
@@ -192,9 +200,11 @@ class ArgumentModel(nn.Module):
         running_loss = deque(maxlen=args.print_interval)
         timestamps = deque(maxlen=args.print_interval)
 
+        step = 0
         for epoch in range(1, epochs + 1):
             print(f'Starting Epoch {epoch}')
-            for step, (class_samples, class_labels) in enumerate(class_dataloader):
+            for class_samples, class_labels in class_dataloader:
+                step += 1
                 try:
                     polarity_samples, polarity_labels = next(polarity_iter)
                 except StopIteration:
@@ -219,25 +229,25 @@ class ArgumentModel(nn.Module):
                 torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
                 optimizer.step()
 
-                d_step = step + 1
                 loss = loss.item()
                 running_loss.append(loss)
                 timestamps.append(time.time())
                 metrics = {
-                    'Train Type Classification Loss': class_loss.item(),
-                    'Train Polarity Assessment Loss': polarity_loss.item(),
+                    'Type Classifier/Train Loss': class_loss.item(),
+                    'Polarity/Train Loss': polarity_loss.item(),
                     'Total Train Loss': loss,
                 }
 
-                if d_step % args.print_interval == 0:
-                    print(f'Step {d_step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
+                if step % args.print_interval == 0:
+                    print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
                           f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
 
-                if d_step % args.eval_interval == 0:
+                if step % args.eval_interval == 0:
                     eval_metrics = self.evaluate(class_val_dataset, polarity_val_dataset, args, n_samples=(args.batch_size * args.batches_per_eval))
                     metrics.update(eval_metrics)
-                    print(f'Step {d_step}:\t{eval_metrics}')
+                    print(f'Step {step}:\t{eval_metrics}')
 
-                wandb.log(metrics)
+                wandb.log(metrics, step=step)
+
 
 

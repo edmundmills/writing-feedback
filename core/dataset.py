@@ -18,6 +18,9 @@ argument_types = {
             'Evidence': 6,
             'Concluding Statement': 7
         }
+def get_value(item):
+    return item[1]
+argument_names = [k for k, _ in sorted(argument_types.items(), key=get_value)]
 
 def load_n_essays(n_essays):
     data_path = Path('data') / 'train.csv'
@@ -85,7 +88,8 @@ class EssayDataset:
             self.df = pd.read_csv(self.data_path / 'train.csv')
         self.essay_ids = essay_ids or list(essay_path.stem for essay_path in self.essay_dir.iterdir())
         self.essays = {}
-        print('Collating essays and labels...')
+        if full_dataset is None:
+            print('Collating essays and labels...')
         for essay_id in tqdm.tqdm(self.essay_ids):
             if full_dataset is None:
                 text = open_essay(essay_id)

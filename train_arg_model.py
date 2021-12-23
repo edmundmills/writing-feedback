@@ -22,7 +22,15 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    dataset = EssayDataset()
+    if not args.debug:
+        dataset = EssayDataset()
+    else:
+        dataset = EssayDataset(n_essays=200)
+        args.print_interval = 10
+        args.eval_interval = 50
+        args.batches_per_eval = 4
+        args.epochs = 20
+
     train, val = dataset.split()
     class_train_dataset = train.make_arg_classification_dataset()
     class_val_dataset = val.make_arg_classification_dataset()
