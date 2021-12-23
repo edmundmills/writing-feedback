@@ -11,7 +11,6 @@ def test_reset(env):
     assert(env.reward == 0)
     assert(isinstance(env.essay_id, str))
     assert(isinstance(env.essay_text, str))
-    assert(isinstance(env.essay_path, Path))
     assert(isinstance(env.essay_labels, pd.DataFrame))
     assert(isinstance(env.sentences, list))
     position = torch.zeros(env.max_sentences)

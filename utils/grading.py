@@ -15,7 +15,7 @@ def ismatch(prediction, label):
 def grade(feedback:List[Dict], essay:pd.DataFrame):
     matched_labels = [0] * len(essay)
     for prediction in feedback:
-        for idx, label in essay.iterrows():
+        for idx, (_, label) in enumerate(essay.iterrows()):
             if ismatch(prediction, label):
                 matched_labels[idx] = 1
                 break

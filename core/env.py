@@ -3,12 +3,12 @@ from functools import partial
 import gym
 import torch
 
-from core.dataset import ArgumentDataset
+from core.dataset import EssayDataset
 from utils.grading import grade
 from utils.text import to_sentences
 
 class AssigmentEnv(gym.Env):
-    def __init__(self, dataset_rows=None) -> None:
+    def __init__(self, n_essays=None) -> None:
         super().__init__()
         self.actions = {
             0: self._move_up,
@@ -32,7 +32,7 @@ class AssigmentEnv(gym.Env):
         self.reward = None
         self.done = None
         print('Loading Dataset')
-        self.dataset = ArgumentDataset(nrows=dataset_rows)
+        self.dataset = EssayDataset(n_essays=n_essays)
         print('Dataset Loaded')
         self.max_sentences = 60
         self.max_args = 20
@@ -40,7 +40,7 @@ class AssigmentEnv(gym.Env):
     def reset(self):
         self.done = False
         self.reward = 0
-        self.essay_id, self.essay_path, self.essay_text, self.essay_labels = self.dataset.random_essay()[0]
+        self.essay_id, self.essay_text, self.essay_labels = self.dataset.random_essay()[0]
         self.sentences = to_sentences(self.essay_text)
         self._position = 0
         self.sentence_state = None

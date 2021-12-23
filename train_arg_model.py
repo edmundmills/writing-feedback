@@ -6,7 +6,7 @@ import transformers
 import torch
 
 from core.argument_model import ArgumentModel
-from core.dataset import ArgumentDataset
+from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, wandb_run
 
@@ -22,10 +22,15 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    dataset = ArgumentDataset()
-    class_train_dataset, class_val_dataset = dataset.make_arg_classification_datasets()
-    polarity_train_dataset, polarity_val_dataset = dataset.make_polarity_dataset()
+    dataset = EssayDataset()
+    train, val = dataset.split()
+    class_train_dataset = train.make_arg_classification_dataset()
+    class_val_dataset = val.make_arg_classification_dataset()
+    polarity_train_dataset = train.make_polarity_dataset()
+    polarity_val_dataset = val.make_polarity_dataset()
+
     arg_model = ArgumentModel()
+    
     with wandb_run(args):
         arg_model.train(class_train_dataset, class_val_dataset,
                         polarity_train_dataset, polarity_val_dataset,

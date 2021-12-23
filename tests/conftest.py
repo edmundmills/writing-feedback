@@ -4,8 +4,14 @@ import numpy as np
 import pytest
 import torch
 
-from core.dataset import ArgumentDataset
+from core.dataset import EssayDataset
 from core.env import AssigmentEnv
+
+random.seed(0)
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
+
 
 @pytest.fixture
 def fix_seed():
@@ -16,8 +22,8 @@ def fix_seed():
 
 @pytest.fixture
 def dataset():
-    return ArgumentDataset(nrows=100)
+    return EssayDataset(n_essays=10)
 
 @pytest.fixture
 def env():
-    return AssigmentEnv(dataset_rows=100)
+    return AssigmentEnv(n_essays=10)
