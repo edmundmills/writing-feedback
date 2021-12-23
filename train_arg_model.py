@@ -32,8 +32,8 @@ if __name__ == '__main__':
         args.epochs = 20
 
     train, val = dataset.split()
-    class_train_dataset = train.make_arg_classification_dataset()
-    class_val_dataset = val.make_arg_classification_dataset()
+    class_train_dataset = train.make_arg_classification_dataset(balanced=True)
+    class_val_dataset = val.make_arg_classification_dataset(balanced=True)
     polarity_train_dataset = train.make_polarity_dataset()
     polarity_val_dataset = val.make_polarity_dataset()
 

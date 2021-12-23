@@ -146,10 +146,26 @@ class EssayDataset:
         print(f'Polarity Dataset Created with {len(text_pairs)} pairs.')
         return ComparisonDataset(text_pairs, labels)
 
-    def make_arg_classification_dataset(self) -> ClassificationDataset:
+    def make_arg_classification_dataset(self, balanced=False) -> ClassificationDataset:
         print('Making Argmument Classification Dataset')
-        text = list(self.df.loc[:,'discourse_text'])
-        labels = torch.LongTensor(list(argument_types[row.loc['discourse_type']] for _, row in self.df.iterrows()))
+        if balanced:
+            type_dfs = []
+            type_lens = []
+            for arg_type in (arg_type for arg_type in argument_names if arg_type != 'None'):
+                type_df = self.df[self.df['discourse_type'] == arg_type]
+                type_lens.append(len(type_df))
+                type_dfs.append(type_df)
+
+            min_len = min(type_lens)
+            text = []
+            labels = []
+            for df in type_dfs:
+                text.extend(list(df.iloc[:min_len].loc[:,'discourse_text']))
+                labels.extend([argument_types[row.loc['discourse_type']] for _, row in df.iloc[:min_len].iterrows()])
+        else:
+            text = list(self.df.loc[:,'discourse_text'])
+            labels = [argument_types[row.loc['discourse_type']] for _, row in self.df.iterrows()]
+        labels = torch.LongTensor(labels)
         print(f'Argument Classification Dataset Created with {len(text)} samples.')
         return ClassificationDataset(text, labels)
 
@@ -206,5 +222,7 @@ class EssayDataset:
             labels.extend(0 for _ in permutations(evidences, 2))
         if lead:
             text_pairs.extend(((evidence, lead) for evidence in evidences))
+            labels.extend(0 for _ in evidences)
+            text_pairs.extend(((lead, evidence) for evidence in evidences))
             labels.extend(0 for _ in evidences)
         return text_pairs, labels

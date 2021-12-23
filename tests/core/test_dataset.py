@@ -42,6 +42,15 @@ def test_make_arg_class_dataset(fix_seed, dataset):
     assert(len(class_dataset) == len(class_dataset.text))
     assert(len(class_dataset) == class_dataset.labels.size()[0])
 
+def test_make_balanced_arg_class_dataset(fix_seed, dataset):
+    class_dataset = dataset.make_arg_classification_dataset(balanced=True)
+    assert(isinstance(class_dataset, ClassificationDataset))
+    assert(isinstance(class_dataset[0][0], str))
+    assert(isinstance(class_dataset[0][1], torch.Tensor))
+    assert(len(class_dataset) == len(class_dataset.text))
+    assert(len(class_dataset) == class_dataset.labels.size()[0])
+    assert(torch.sum(torch.eq(class_dataset.labels, 1)) == torch.sum(torch.eq(class_dataset.labels, 2)))
+
 def test_open_essay():
     essay_text = open_essay('423A1CA112E2') 
     assert(isinstance(essay_text, str))

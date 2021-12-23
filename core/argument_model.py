@@ -7,7 +7,7 @@ from transformers import AdamW
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
+from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.dataset import argument_names
@@ -104,7 +104,7 @@ class ArgumentModel(nn.Module):
                                 batch_size=args.batch_size,
                                 num_workers=4,
                                 drop_last=True,
-                                sampler=SequentialSampler(dataset))
+                                sampler=RandomSampler(dataset))
         losses = []
         preds = []
         labels = []
@@ -137,7 +137,7 @@ class ArgumentModel(nn.Module):
                                 batch_size=args.batch_size,
                                 num_workers=4,
                                 drop_last=True,
-                                sampler=SequentialSampler(dataset))
+                                sampler=RandomSampler(dataset))
         losses = []
         labels = []
         preds = []
