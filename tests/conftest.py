@@ -27,3 +27,7 @@ def dataset():
 @pytest.fixture
 def env():
     return AssigmentEnv(n_essays=10)
+
+@pytest.fixture
+def essay():
+    return EssayDataset(n_essays=1)[0]

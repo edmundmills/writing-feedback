@@ -4,7 +4,6 @@ import gym
 import torch
 
 from core.dataset import EssayDataset
-from utils.grading import grade
 from utils.text import to_sentences
 
 class AssigmentEnv(gym.Env):
@@ -87,7 +86,7 @@ class AssigmentEnv(gym.Env):
         pass
 
     def _end(self):
-        # self.reward = grade(self.submission(), self.essay)
+        # self.reward = essay.grade(self.submission(), self.essay)
         self.done = True
 
     def submission(self):

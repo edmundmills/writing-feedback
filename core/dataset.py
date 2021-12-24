@@ -2,11 +2,13 @@ from csv import DictReader
 from itertools import permutations
 import random
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import pandas as pd
 import torch
 import tqdm
+
+from utils.grading import ismatch
 
 argument_types = {
             'None': 0,
@@ -29,8 +31,85 @@ class Essay:
         self.essay_id = essay_id
         self.text = text
         self.labels = labels
-    
 
+    def grade(self, predictions:List[Dict]):
+        matched_labels = [0] * len(self.labels)
+        for prediction in predictions:
+            for idx, (_, label) in enumerate(self.labels.iterrows()):
+                if ismatch(prediction, label):
+                    matched_labels[idx] = 1
+                    break
+        true_positives = sum(matched_labels)
+        false_positives = len(predictions) - true_positives
+        false_negatives = len(self.labels) - true_positives
+        f_score = true_positives / (true_positives + false_positives + false_negatives)
+        return {
+            'f_score': f_score,
+            'true_positives': true_positives,
+            'false_negatives': false_negatives,
+            'false_positives': false_positives,
+        }
+
+    def polarity_pairs(self):
+        text_pairs = []
+        labels = []
+        essay_arguments = self.labels[['discourse_type', 'discourse_text']].values.tolist()
+        lead = None
+        position = None
+        conclusion = None
+        claims = []
+        counterclaims = []
+        evidences = []
+        prev_arg = None
+        for arg_type, arg_text in essay_arguments:
+            if arg_type == 'Lead':
+                lead = arg_text
+            elif arg_type == 'Position':
+                position = arg_text
+            elif arg_type == 'Concluding Statement':
+                conclusion = arg_text
+            elif arg_type == 'Claim':
+                claims.append(arg_text)
+            elif arg_type == 'Counterclaim':
+                counterclaims.append(arg_text)
+            elif arg_type == 'Evidence':
+                evidences.append(arg_text)
+            if prev_arg is not None:
+                if prev_arg[0] == 'Claim' and arg_type == 'Evidence':
+                    text_pairs.append((prev_arg[1], arg_text))
+                    labels.append(1)
+                elif prev_arg[0] == 'Claim' and arg_type == 'Counterclaim':
+                    text_pairs.append((prev_arg[1], arg_text))
+                    labels.append(-1)
+                elif prev_arg[0] == 'Counterclaim' and arg_type == 'Rebuttal':
+                    text_pairs.append((prev_arg[1], arg_text))
+                    labels.append(-1)
+            prev_arg = arg_type, arg_text
+        if position:
+            text_pairs.extend(((position, claim) for claim in claims))
+            labels.extend(1 for _ in claims)
+            text_pairs.extend(((claim, position) for claim in claims))
+            labels.extend(0 for _ in claims)
+            text_pairs.extend(((evidence, position) for evidence in evidences))
+            labels.extend(0 for _ in evidences)
+            text_pairs.extend(((position, claim) for claim in counterclaims))
+            labels.extend(-1 for _ in counterclaims)
+        if conclusion:
+            text_pairs.extend(((conclusion, claim) for claim in claims))
+            labels.extend(1 for _ in claims)
+            text_pairs.extend(((conclusion, claim) for claim in counterclaims))
+            labels.extend(-1 for _ in counterclaims)
+            text_pairs.extend(((evidence, conclusion) for evidence in evidences))
+            labels.extend(0 for _ in evidences)
+        if evidences and len(evidences) >= 2:
+            text_pairs.extend(permutations(evidences, 2))
+            labels.extend(0 for _ in permutations(evidences, 2))
+        if lead:
+            text_pairs.extend(((evidence, lead) for evidence in evidences))
+            labels.extend(0 for _ in evidences)
+            text_pairs.extend(((lead, evidence) for evidence in evidences))
+            labels.extend(0 for _ in evidences)
+        return text_pairs, labels
 
 def load_n_essays(n_essays):
     data_path = Path('data') / 'train.csv'
@@ -149,8 +228,8 @@ class EssayDataset:
     def make_polarity_dataset(self) -> ComparisonDataset:
         text_pairs = []
         labels = []
-        for essay_id in self.essay_ids:
-            pairs, polarity_labels = self.polarity_pairs(essay_id)
+        for essay in self:
+            pairs, polarity_labels = essay.polarity_pairs()
             text_pairs.extend(pairs)
             labels.extend(polarity_labels)
         labels = torch.FloatTensor(labels)
@@ -180,64 +259,4 @@ class EssayDataset:
         print(f'Argument Classification Dataset Created with {len(text)} samples.')
         return ClassificationDataset(text, labels)
 
-    def polarity_pairs(self, essay_id):
-        essay = self.essays[essay_id]
-        text_pairs = []
-        labels = []
-        essay_arguments = essay.labels[['discourse_type', 'discourse_text']].values.tolist()
-        lead = None
-        position = None
-        conclusion = None
-        claims = []
-        counterclaims = []
-        evidences = []
-        prev_arg = None
-        for arg_type, arg_text in essay_arguments:
-            if arg_type == 'Lead':
-                lead = arg_text
-            elif arg_type == 'Position':
-                position = arg_text
-            elif arg_type == 'Concluding Statement':
-                conclusion = arg_text
-            elif arg_type == 'Claim':
-                claims.append(arg_text)
-            elif arg_type == 'Counterclaim':
-                counterclaims.append(arg_text)
-            elif arg_type == 'Evidence':
-                evidences.append(arg_text)
-            if prev_arg is not None:
-                if prev_arg[0] == 'Claim' and arg_type == 'Evidence':
-                    text_pairs.append((prev_arg[1], arg_text))
-                    labels.append(1)
-                elif prev_arg[0] == 'Claim' and arg_type == 'Counterclaim':
-                    text_pairs.append((prev_arg[1], arg_text))
-                    labels.append(-1)
-                elif prev_arg[0] == 'Counterclaim' and arg_type == 'Rebuttal':
-                    text_pairs.append((prev_arg[1], arg_text))
-                    labels.append(-1)
-            prev_arg = arg_type, arg_text
-        if position:
-            text_pairs.extend(((position, claim) for claim in claims))
-            labels.extend(1 for _ in claims)
-            text_pairs.extend(((claim, position) for claim in claims))
-            labels.extend(0 for _ in claims)
-            text_pairs.extend(((evidence, position) for evidence in evidences))
-            labels.extend(0 for _ in evidences)
-            text_pairs.extend(((position, claim) for claim in counterclaims))
-            labels.extend(-1 for _ in counterclaims)
-        if conclusion:
-            text_pairs.extend(((conclusion, claim) for claim in claims))
-            labels.extend(1 for _ in claims)
-            text_pairs.extend(((conclusion, claim) for claim in counterclaims))
-            labels.extend(-1 for _ in counterclaims)
-            text_pairs.extend(((evidence, conclusion) for evidence in evidences))
-            labels.extend(0 for _ in evidences)
-        if evidences and len(evidences) >= 2:
-            text_pairs.extend(permutations(evidences, 2))
-            labels.extend(0 for _ in permutations(evidences, 2))
-        if lead:
-            text_pairs.extend(((evidence, lead) for evidence in evidences))
-            labels.extend(0 for _ in evidences)
-            text_pairs.extend(((lead, evidence) for evidence in evidences))
-            labels.extend(0 for _ in evidences)
-        return text_pairs, labels
+

@@ -50,8 +50,8 @@ def test_open_essay():
     assert(isinstance(essay_text, str))
     assert(len(essay_text) > 0)
 
-def test_polarity_pairs(dataset):
-    pairs, labels = dataset.polarity_pairs('6B4F7A0165B9')
+def test_polarity_pairs(essay):
+    pairs, labels = essay.polarity_pairs()
     assert(isinstance(pairs, list))
     assert(isinstance(labels, list))
     assert(len(pairs) == len(labels))
