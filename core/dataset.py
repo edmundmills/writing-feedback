@@ -10,6 +10,10 @@ import tqdm
 
 from utils.grading import ismatch
 
+data_path = Path('data')
+essay_dir = data_path / 'train'
+label_file = data_path / 'train.csv'
+
 argument_types = {
             'None': 0,
             'Lead': 1,
@@ -20,17 +24,19 @@ argument_types = {
             'Evidence': 6,
             'Concluding Statement': 7
         }
-def get_value(item):
-    return item[1]
-argument_names = [k for k, _ in sorted(argument_types.items(), key=get_value)]
 
-data_path = 'data'
+argument_names = [k for k, _ in sorted(argument_types.items(), key=lambda x : x[1])]
+
 
 class Essay:
     def __init__(self, essay_id, text, labels) -> None:
         self.essay_id = essay_id
         self.text = text
         self.labels = labels
+
+    @property
+    def path(self):
+        return essay_dir / f'{self.essay_id}.txt'
 
     def grade(self, predictions:List[Dict]):
         matched_labels = [0] * len(self.labels)
@@ -111,31 +117,6 @@ class Essay:
             labels.extend(0 for _ in evidences)
         return text_pairs, labels
 
-def load_n_essays(n_essays):
-    data_path = Path('data') / 'train.csv'
-    essay_ids = set()
-    essay_ids_tmp = set()
-    with open(data_path, 'r') as f:
-        for idx, row in enumerate(DictReader(f)):
-            essay_ids_tmp.add(row['id'])
-            if len(essay_ids_tmp) > n_essays:
-                nrows = idx
-                break
-            else:
-                essay_ids.add(row['id'])
-    df = pd.read_csv(data_path, nrows=nrows)
-    return list(essay_ids), df
-
-def labels_by_id(df, id):
-    matches = df.loc[:,'id'] == id
-    return df[matches]
-
-def open_essay(essay_id):
-    path = Path('data') / 'train' / f'{essay_id}.txt'
-    with open(path) as f:
-        essay_text = f.read()
-    return essay_text
-
  
 class ClassificationDataset:
     def __init__(self, text:List[str], labels:torch.Tensor):
@@ -163,31 +144,47 @@ class ComparisonDataset:
 
 class EssayDataset:
     def __init__(self, n_essays=None, essay_ids=None, full_dataset=None) -> None:
-        self.data_path = Path('data')
-        self.essay_dir = self.data_path / 'train'
         if n_essays:
             print(f'Loading data for {n_essays} essays')
-            essay_ids, self.df = load_n_essays(n_essays=n_essays)
+            essay_ids, self.df = self._load_n_essays(n_essays=n_essays)
         elif essay_ids:
             print(f'Loading data for {len(essay_ids)} essays')
-            self.df = pd.read_csv(self.data_path / 'train.csv')
+            self.df = pd.read_csv(data_path / 'train.csv')
             self.df = self.df[self.df['id'].isin(essay_ids)]
         else:
             print('Loading essays...')
-            self.df = pd.read_csv(self.data_path / 'train.csv')
-        self.essay_ids = essay_ids or list(essay_path.stem for essay_path in self.essay_dir.iterdir())
+            self.df = pd.read_csv(data_path / 'train.csv')
+        self.essay_ids = essay_ids or list(essay_path.stem for essay_path in essay_dir.iterdir())
         self.essays = {}
         if full_dataset is None:
             print('Collating essays and labels...')
         for essay_id in tqdm.tqdm(self.essay_ids):
             if full_dataset is None:
-                text = open_essay(essay_id)
-                labels = labels_by_id(self.df, essay_id)
+                essay_file = essay_dir / f'{essay_id}.txt'
+                with open(essay_file) as f:
+                    text = f.read()
+                matches = self.df.loc[:,'id'] == essay_id
+                labels = self.df[matches]
                 essay = Essay(essay_id, text, labels)
             else:
                 essay = full_dataset.essays[essay_id]
             self.essays[essay_id] = essay
         print(f'Essay dataset created with {len(self)} essays.')
+
+    def _load_n_essays(self, n_essays):
+        essay_ids = set()
+        essay_ids_tmp = set()
+        with open(label_file, 'r') as f:
+            for idx, row in enumerate(DictReader(f)):
+                essay_ids_tmp.add(row['id'])
+                if len(essay_ids_tmp) > n_essays:
+                    nrows = idx
+                    break
+                else:
+                    essay_ids.add(row['id'])
+        df = pd.read_csv(label_file, nrows=nrows)
+        return list(essay_ids), df
+
 
     def __len__(self):
         return len(self.essay_ids)

@@ -23,11 +23,6 @@ def test_random_span(dataset):
     assert(isinstance(random_span[0], str))
     assert(len(random_span[0].split()) == 5)
 
-def test_labels_by_id(dataset):
-    essay = dataset[0]
-    lookup_essay = labels_by_id(dataset.df, essay.essay_id)
-    assert(essay.labels.equals(lookup_essay))
-
 def test_make_arg_class_dataset(fix_seed, dataset):
     class_dataset = dataset.make_arg_classification_dataset()
     assert(isinstance(class_dataset, ClassificationDataset))
@@ -44,11 +39,6 @@ def test_make_balanced_arg_class_dataset(fix_seed, dataset):
     assert(len(class_dataset) == len(class_dataset.text))
     assert(len(class_dataset) == class_dataset.labels.size()[0])
     assert(torch.sum(torch.eq(class_dataset.labels, 1)) == torch.sum(torch.eq(class_dataset.labels, 2)))
-
-def test_open_essay():
-    essay_text = open_essay('423A1CA112E2') 
-    assert(isinstance(essay_text, str))
-    assert(len(essay_text) > 0)
 
 def test_polarity_pairs(essay):
     pairs, labels = essay.polarity_pairs()
