@@ -219,6 +219,10 @@ class EssayDataset:
         if position:
             text_pairs.extend(((position, claim) for claim in claims))
             labels.extend(1 for _ in claims)
+            text_pairs.extend(((claim, position) for claim in claims))
+            labels.extend(0 for _ in claims)
+            text_pairs.extend(((evidence, position) for evidence in evidences))
+            labels.extend(0 for _ in evidences)
             text_pairs.extend(((position, claim) for claim in counterclaims))
             labels.extend(-1 for _ in counterclaims)
         if conclusion:
