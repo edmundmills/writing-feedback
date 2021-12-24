@@ -1,4 +1,5 @@
 from collections import deque
+from pathlib import Path
 import time
 
 import numpy as np
@@ -187,15 +188,13 @@ class ArgumentModel(nn.Module):
                                 num_workers=4,
                                 drop_last=True,
                                 sampler=RandomSampler(class_train_dataset))
-        def init_polarity_iter():
-            polarity_dataloader = DataLoader(polarity_train_dataset,
-                                    batch_size=batch_size,
-                                    num_workers=4,
-                                    drop_last=True,
-                                    sampler=RandomSampler(polarity_train_dataset))
-            return iter(polarity_dataloader)
+        polarity_dataloader = DataLoader(polarity_train_dataset,
+                                batch_size=batch_size,
+                                num_workers=4,
+                                drop_last=True,
+                                sampler=RandomSampler(polarity_train_dataset))
         
-        polarity_iter = init_polarity_iter()
+        polarity_iter = iter(polarity_dataloader)
 
         running_loss = deque(maxlen=args.print_interval)
         timestamps = deque(maxlen=args.print_interval)
@@ -208,7 +207,7 @@ class ArgumentModel(nn.Module):
                 try:
                     polarity_samples, polarity_labels = next(polarity_iter)
                 except StopIteration:
-                    polarity_iter = init_polarity_iter()
+                    polarity_iter = iter(polarity_dataloader)
                     polarity_samples, polarity_labels = next(polarity_iter)
 
                 class_labels = class_labels.to(self.device)
@@ -248,6 +247,20 @@ class ArgumentModel(nn.Module):
                     print(f'Step {step}:\t{eval_metrics}')
 
                 wandb.log(metrics, step=step)
+        self.save()
 
+    def save(self):
+        model_dir = Path('models') / self.__class__.__name__
+        model_dir.mkdir(parents=True, exist_ok=True)
+        model_file = model_dir / f'{wandb.run.name}.pth' 
+        print(f'Saving model as {model_file}')
+        torch.save(self.state_dict(), model_file)
+        print(f'Model Saved.')
+
+    def load(self, model_name):
+        model_file = Path('models') / self.__class__.__name__ / f'{model_name}.pth'
+        print(f'Loading model from {model_file}')
+        self.load_state_dict(torch.load(model_file))
+        print('Model Loaded')
 
 
