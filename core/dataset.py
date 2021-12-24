@@ -84,9 +84,9 @@ class Essay:
                 if prev_arg[0] == 'Claim' and arg_type == 'Evidence':
                     text_pairs.append((prev_arg[1], arg_text))
                     labels.append(1)
-                elif prev_arg[0] == 'Claim' and arg_type == 'Counterclaim':
-                    text_pairs.append((prev_arg[1], arg_text))
-                    labels.append(-1)
+                # elif prev_arg[0] == 'Claim' and arg_type == 'Counterclaim':
+                #     text_pairs.append((prev_arg[1], arg_text))
+                #     labels.append(-1)
                 elif prev_arg[0] == 'Counterclaim' and arg_type == 'Rebuttal':
                     text_pairs.append((prev_arg[1], arg_text))
                     labels.append(-1)
@@ -94,27 +94,30 @@ class Essay:
         if position:
             text_pairs.extend(((position, claim) for claim in claims))
             labels.extend(1 for _ in claims)
-            text_pairs.extend(((claim, position) for claim in claims))
-            labels.extend(0 for _ in claims)
-            text_pairs.extend(((evidence, position) for evidence in evidences))
-            labels.extend(0 for _ in evidences)
+            # text_pairs.extend(((evidence, position) for evidence in evidences))
+            # labels.extend(0 for _ in evidences)
             text_pairs.extend(((position, claim) for claim in counterclaims))
             labels.extend(-1 for _ in counterclaims)
         if conclusion:
-            text_pairs.extend(((conclusion, claim) for claim in claims))
-            labels.extend(1 for _ in claims)
+            # text_pairs.extend(((conclusion, claim) for claim in claims))
+            # labels.extend(1 for _ in claims)
             text_pairs.extend(((conclusion, claim) for claim in counterclaims))
             labels.extend(-1 for _ in counterclaims)
             text_pairs.extend(((evidence, conclusion) for evidence in evidences))
             labels.extend(0 for _ in evidences)
-        if evidences and len(evidences) >= 2:
-            text_pairs.extend(permutations(evidences, 2))
-            labels.extend(0 for _ in permutations(evidences, 2))
+        # if evidences and len(evidences) >= 2:
+        #     text_pairs.extend(permutations(evidences, 2))
+        #     labels.extend(0 for _ in permutations(evidences, 2))
+        for counterclaim in counterclaims:
+            text_pairs.extend((claim, counterclaim) for claim in claims)
+            labels.extend(-1 for _ in claims)
+            text_pairs.extend((counterclaim, claim) for claim in claims)
+            labels.extend(-1 for _ in claims)
         if lead:
             text_pairs.extend(((evidence, lead) for evidence in evidences))
             labels.extend(0 for _ in evidences)
-            text_pairs.extend(((lead, evidence) for evidence in evidences))
-            labels.extend(0 for _ in evidences)
+            # text_pairs.extend(((lead, evidence) for evidence in evidences))
+            # labels.extend(0 for _ in evidences)
         return text_pairs, labels
 
  

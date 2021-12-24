@@ -165,7 +165,7 @@ class ArgumentModel(nn.Module):
         avg_loss = sum(losses) / len(losses)
         accuracy = sum(np.equal(preds, labels)) / len(preds)
         self.encoder.train()
-        confusion_matrix = wandb.plot.confusion_matrix(y_true=labels, preds=preds, class_names=['None', 'Supporting', 'Contradicting'])
+        confusion_matrix = wandb.plot.confusion_matrix(y_true=labels, preds=preds, class_names=['Contradicting', 'None', 'Supporting'])
         return {'Polarity/Eval Loss': avg_loss,
                 'Polarity/Eval Accuracy': accuracy,
                 'Polarity/Confusion Matrix': confusion_matrix}

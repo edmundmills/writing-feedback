@@ -47,11 +47,6 @@ def test_polarity_pairs(essay):
     assert(len(pairs) == len(labels))
     assert(min(labels) >= -1)
     assert(max(labels) <= 1)
-    for pair, label in zip(pairs, labels):
-        print(pair[0])
-        print(pair[1])
-        print(label)
-        print('---')
 
 def test_split(dataset):
     train, val = dataset.split()
