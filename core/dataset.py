@@ -165,7 +165,7 @@ class EssayDataset:
                     text = f.read()
                 matches = self.df.loc[:,'id'] == essay_id
                 labels = self.df[matches]
-                essay = Essay(essay_id, text, labels)
+                essay = (text, labels)
             else:
                 essay = full_dataset.essays[essay_id]
             self.essays[essay_id] = essay
@@ -191,8 +191,8 @@ class EssayDataset:
 
     def __getitem__(self, idx) -> Tuple[str, str, pd.DataFrame]:
         essay_id = self.essay_ids[idx]
-        essay = self.essays[essay_id]
-        return essay
+        essay_text, essay_labels = self.essays[essay_id]
+        return Essay(essay_id, essay_text, essay_labels)
 
     def random_essay(self, num_essays=1) -> List:
         return random.choices(self, k=num_essays)
