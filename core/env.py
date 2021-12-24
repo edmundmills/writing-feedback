@@ -40,8 +40,8 @@ class AssigmentEnv(gym.Env):
     def reset(self):
         self.done = False
         self.reward = 0
-        self.essay_id, self.essay_text, self.essay_labels = self.dataset.random_essay()[0]
-        self.sentences = to_sentences(self.essay_text)
+        self.essay = self.dataset.random_essay()[0]
+        self.sentences = to_sentences(self.essay.text)
         self._position = 0
         self.sentence_state = None
         self.argument_state = None

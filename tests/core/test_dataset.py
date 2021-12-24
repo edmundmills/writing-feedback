@@ -10,18 +10,12 @@ def test_init(dataset):
 
 def test_idx(dataset):
     essay = dataset[0]
-    assert(isinstance(essay, tuple))
-    assert(isinstance(essay[0], str))
-    assert(isinstance(essay[1], str))
-    assert(isinstance(essay[2], pd.DataFrame))
+    assert(isinstance(essay, Essay))
 
 def test_random_essay(dataset):
     random_essay = dataset.random_essay(num_essays=5)
     assert(len(random_essay) == 5)
-    assert(isinstance(random_essay[0], tuple))
-    assert(isinstance(random_essay[0][0], str))
-    assert(isinstance(random_essay[0][1], str))
-    assert(isinstance(random_essay[0][2], pd.DataFrame))
+    assert(isinstance(random_essay[0], Essay))
 
 def test_random_span(dataset):
     random_span = dataset.random_span(num_words=5, num_spans=10)
@@ -30,9 +24,9 @@ def test_random_span(dataset):
     assert(len(random_span[0].split()) == 5)
 
 def test_labels_by_id(dataset):
-    essay_id, _, labels = dataset[0]
-    lookup_essay = labels_by_id(dataset.df, essay_id)
-    assert(labels.equals(lookup_essay))
+    essay = dataset[0]
+    lookup_essay = labels_by_id(dataset.df, essay.essay_id)
+    assert(essay.labels.equals(lookup_essay))
 
 def test_make_arg_class_dataset(fix_seed, dataset):
     class_dataset = dataset.make_arg_classification_dataset()

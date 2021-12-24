@@ -22,6 +22,16 @@ def get_value(item):
     return item[1]
 argument_names = [k for k, _ in sorted(argument_types.items(), key=get_value)]
 
+data_path = 'data'
+
+class Essay:
+    def __init__(self, essay_id, text, labels) -> None:
+        self.essay_id = essay_id
+        self.text = text
+        self.labels = labels
+    
+
+
 def load_n_essays(n_essays):
     data_path = Path('data') / 'train.csv'
     essay_ids = set()
@@ -94,9 +104,10 @@ class EssayDataset:
             if full_dataset is None:
                 text = open_essay(essay_id)
                 labels = labels_by_id(self.df, essay_id)
+                essay = Essay(essay_id, text, labels)
             else:
-                text, labels = full_dataset.essays[essay_id]
-            self.essays[essay_id] = (text, labels)
+                essay = full_dataset.essays[essay_id]
+            self.essays[essay_id] = essay
         print(f'Essay dataset created with {len(self)} essays.')
 
     def __len__(self):
@@ -104,19 +115,19 @@ class EssayDataset:
 
     def __getitem__(self, idx) -> Tuple[str, str, pd.DataFrame]:
         essay_id = self.essay_ids[idx]
-        essay_text, essay_labels = self.essays[essay_id]
-        return essay_id, essay_text, essay_labels
+        essay = self.essays[essay_id]
+        return essay
 
     def random_essay(self, num_essays=1) -> List:
         return random.choices(self, k=num_essays)
 
     def random_span(self, num_words, num_spans=1):
         spans = []
-        for _, essay_text, _ in self.random_essay(num_spans):
-            words = essay_text.split()
+        for essay in self.random_essay(num_spans):
+            words = essay.text.split()
             start_idx = len(words) - num_words
             if start_idx < 0:
-                spans.append(essay_text)
+                spans.append(essay.text)
             else:
                 start_idx = random.sample(range(start_idx), 1)[0]
                 stop_idx = start_idx + num_words
@@ -170,10 +181,10 @@ class EssayDataset:
         return ClassificationDataset(text, labels)
 
     def polarity_pairs(self, essay_id):
-        _, essay_labels = self.essays[essay_id]
+        essay = self.essays[essay_id]
         text_pairs = []
         labels = []
-        essay_arguments = essay_labels[['discourse_type', 'discourse_text']].values.tolist()
+        essay_arguments = essay.labels[['discourse_type', 'discourse_text']].values.tolist()
         lead = None
         position = None
         conclusion = None

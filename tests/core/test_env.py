@@ -4,14 +4,13 @@ import pandas as pd
 import pytest
 
 from core.env import *
+from core.dataset import Essay
 
 def test_reset(env):
     env.reset()
     assert(env.done == False)
     assert(env.reward == 0)
-    assert(isinstance(env.essay_id, str))
-    assert(isinstance(env.essay_text, str))
-    assert(isinstance(env.essay_labels, pd.DataFrame))
+    assert(isinstance(env.essay, Essay))
     assert(isinstance(env.sentences, list))
     position = torch.zeros(env.max_sentences)
     position[0] = 1

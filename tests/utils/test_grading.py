@@ -2,56 +2,56 @@ from utils.grading import *
 
 class TestIsMatch:
     def test_exact_match(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class = labels.iloc[0]['discourse_type']
-        predictionstring = labels.iloc[0]['predictionstring']
+        essay = dataset[0]
+        arg_class = essay.labels.iloc[0]['discourse_type']
+        predictionstring = essay.labels.iloc[0]['predictionstring']
         prediction = {
             'id': 0,
             'class': arg_class,
             'predictionstring': predictionstring,
         }
-        assert(ismatch(prediction, labels.iloc[0]))
+        assert(ismatch(prediction, essay.labels.iloc[0]))
 
     def test_short_match(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class = labels.iloc[0]['discourse_type']
-        predictionstring = labels.iloc[0]['predictionstring']
+        essay = dataset[0]
+        arg_class = essay.labels.iloc[0]['discourse_type']
+        predictionstring = essay.labels.iloc[0]['predictionstring']
         prediction = {
             'id': 0,
             'class': arg_class,
             'predictionstring': predictionstring[:int(len(predictionstring)*.75)],
         }
-        assert(ismatch(prediction, labels.iloc[0]))
+        assert(ismatch(prediction, essay.labels.iloc[0]))
 
     def test_long_match(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class = labels.iloc[0]['discourse_type']
-        predictionstring = labels.iloc[0]['predictionstring']
-        predictionstring2 = labels.iloc[0]['predictionstring']
+        essay = dataset[0]
+        arg_class = essay.labels.iloc[0]['discourse_type']
+        predictionstring = essay.labels.iloc[0]['predictionstring']
+        predictionstring2 = essay.labels.iloc[0]['predictionstring']
         prediction = {
             'id': 0,
             'class': arg_class,
             'predictionstring': predictionstring + predictionstring2[:int(len(predictionstring)*.25)],
         }
-        assert(ismatch(prediction, labels.iloc[0]))
+        assert(ismatch(prediction, essay.labels.iloc[0]))
 
     def test_short_nonmatch(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class = labels.iloc[0]['discourse_type']
-        predictionstring = labels.iloc[0]['predictionstring']
+        essay = dataset[0]
+        arg_class = essay.labels.iloc[0]['discourse_type']
+        predictionstring = essay.labels.iloc[0]['predictionstring']
         prediction = {
             'id': 0,
             'class': arg_class,
             'predictionstring': predictionstring[:int(len(predictionstring)*.25)],
         }
-        assert(not ismatch(prediction, labels.iloc[0]))
+        assert(not ismatch(prediction, essay.labels.iloc[0]))
 
     def test_long_nonmatch(self, dataset, fix_seed):
-        _, _, labels = dataset[0]
-        arg_class = labels.iloc[0]['discourse_type']
-        predictionstring = labels.iloc[0]['predictionstring']
-        predictionstring2 = labels.iloc[1]['predictionstring']
-        predictionstring3 = labels.iloc[3]['predictionstring']
+        essay = dataset[0]
+        arg_class = essay.labels.iloc[0]['discourse_type']
+        predictionstring = essay.labels.iloc[0]['predictionstring']
+        predictionstring2 = essay.labels.iloc[1]['predictionstring']
+        predictionstring3 = essay.labels.iloc[3]['predictionstring']
         submitted_prediction_string = predictionstring + predictionstring2 + predictionstring3 + '1000 1001 1002 1003 1005 1006 1007 1008 1009 1010 1011 1012 1013 1014 1015 1016 1017 1018 1019 1020 1021'
         print(len(predictionstring), len(submitted_prediction_string))
         prediction = {
@@ -59,25 +59,25 @@ class TestIsMatch:
             'class': arg_class,
             'predictionstring':  submitted_prediction_string,
         }
-        assert(not ismatch(prediction, labels.iloc[0]))
+        assert(not ismatch(prediction, essay.labels.iloc[0]))
 
     def test_other_label(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class = labels.iloc[1]['discourse_type']
-        predictionstring = labels.iloc[1]['predictionstring']
+        essay = dataset[0]
+        arg_class = essay.labels.iloc[1]['discourse_type']
+        predictionstring = essay.labels.iloc[1]['predictionstring']
         prediction = {
                 'id': 0,
                 'class': arg_class,
                 'predictionstring': predictionstring,
         }
-        assert(ismatch(prediction, labels.iloc[1]))
+        assert(ismatch(prediction, essay.labels.iloc[1]))
 
 
 class TestGrade:
     def test_single_prediction(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class = labels.iloc[0]['discourse_type']
-        predictionstring = labels.iloc[0]['predictionstring']
+        essay = dataset[0]
+        arg_class = essay.labels.iloc[0]['discourse_type']
+        predictionstring = essay.labels.iloc[0]['predictionstring']
         predictions = [
             {
                 'id': 0,
@@ -85,18 +85,18 @@ class TestGrade:
                 'predictionstring': predictionstring,
             },
         ]
-        metrics = grade(predictions, labels)
-        assert(metrics['f_score'] == 1 / len(labels))
+        metrics = grade(predictions, essay.labels)
+        assert(metrics['f_score'] == 1 / len(essay.labels))
         assert(metrics['true_positives'] == 1)
         assert(metrics['false_positives'] == 0)
-        assert(metrics['false_negatives'] == len(labels) - 1)
+        assert(metrics['false_negatives'] == len(essay.labels) - 1)
 
     def test_two_predictions(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class1 = labels.iloc[0]['discourse_type']
-        predictionstring1 = labels.iloc[0]['predictionstring']
-        arg_class2 = labels.iloc[1]['discourse_type']
-        predictionstring2 = labels.iloc[1]['predictionstring']
+        essay = dataset[0]
+        arg_class1 = essay.labels.iloc[0]['discourse_type']
+        predictionstring1 = essay.labels.iloc[0]['predictionstring']
+        arg_class2 = essay.labels.iloc[1]['discourse_type']
+        predictionstring2 = essay.labels.iloc[1]['predictionstring']
         predictions = [
             {
                 'id': 0,
@@ -109,18 +109,18 @@ class TestGrade:
                 'predictionstring': predictionstring2,
             },
         ]
-        metrics = grade(predictions, labels)
-        assert(metrics['f_score'] == 2 / len(labels))
+        metrics = grade(predictions, essay.labels)
+        assert(metrics['f_score'] == 2 / len(essay.labels))
         assert(metrics['true_positives'] == 2)
         assert(metrics['false_positives'] == 0)
-        assert(metrics['false_negatives'] == len(labels) - 2)
+        assert(metrics['false_negatives'] == len(essay.labels) - 2)
 
     def test_mixed_predictions(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class1 = labels.iloc[0]['discourse_type']
-        predictionstring1 = labels.iloc[0]['predictionstring']
-        arg_class2 = labels.iloc[1]['discourse_type']
-        predictionstring2 = labels.iloc[1]['predictionstring']
+        essay = dataset[0]
+        arg_class1 = essay.labels.iloc[0]['discourse_type']
+        predictionstring1 = essay.labels.iloc[0]['predictionstring']
+        arg_class2 = essay.labels.iloc[1]['discourse_type']
+        predictionstring2 = essay.labels.iloc[1]['predictionstring']
         predictions = [
             {
                 'id': 0,
@@ -138,14 +138,14 @@ class TestGrade:
                 'predictionstring': predictionstring2,
             },
         ]
-        metrics = grade(predictions, labels)
-        assert(metrics['f_score'] == 2 / (len(labels) + 1))
+        metrics = grade(predictions, essay.labels)
+        assert(metrics['f_score'] == 2 / (len(essay.labels) + 1))
         assert(metrics['true_positives'] == 2)
         assert(metrics['false_positives'] == 1)
-        assert(metrics['false_negatives'] == len(labels) - 2)
+        assert(metrics['false_negatives'] == len(essay.labels) - 2)
 
     def test_all_wrong(self, dataset):
-        _, _, labels = dataset[0]
+        essay = dataset[0]
         predictions = [
             {
                 'id': 0,
@@ -163,16 +163,16 @@ class TestGrade:
                 'predictionstring': '60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75',
             },
         ]
-        metrics = grade(predictions, labels)
+        metrics = grade(predictions, essay.labels)
         assert(metrics['f_score'] == 0)
         assert(metrics['true_positives'] == 0)
         assert(metrics['false_positives'] == 3)
-        assert(metrics['false_negatives'] == len(labels))
+        assert(metrics['false_negatives'] == len(essay.labels))
  
     def test_duplicate_right(self, dataset):
-        _, _, labels = dataset[0]
-        arg_class = labels.iloc[0]['discourse_type']
-        predictionstring = labels.iloc[0]['predictionstring']
+        essay = dataset[0]
+        arg_class = essay.labels.iloc[0]['discourse_type']
+        predictionstring = essay.labels.iloc[0]['predictionstring']
         predictions = [
             {
                 'id': 0,
@@ -185,9 +185,9 @@ class TestGrade:
                 'predictionstring': predictionstring,
             },
         ]
-        metrics = grade(predictions, labels)
-        assert(metrics['f_score'] == 1 / (len(labels) + 1))
+        metrics = grade(predictions, essay.labels)
+        assert(metrics['f_score'] == 1 / (len(essay.labels) + 1))
         assert(metrics['true_positives'] == 1)
         assert(metrics['false_positives'] == 1)
-        assert(metrics['false_negatives'] == len(labels) - 1)
+        assert(metrics['false_negatives'] == len(essay.labels) - 1)
 
