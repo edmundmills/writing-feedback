@@ -5,29 +5,9 @@ import pandas as pd
 
 from core.dataset import *
 
-class TestEssay:
-    def test_polarity_pairs(self, essay):
-        pairs, labels = essay.polarity_pairs()
-        assert(isinstance(pairs, list))
-        assert(isinstance(labels, list))
-        assert(len(pairs) == len(labels))
-        assert(min(labels) >= -1)
-        assert(max(labels) <= 1)
 
-    def test_words(self, essay):
-        words = essay.words
-        assert(isinstance(words, list))
-        assert(isinstance(words[0], str))
 
-    def test_all_arguments(self, essay):
-        arguments = essay.all_arguments()
-        assert(isinstance(arguments, list))
-        assert(isinstance(arguments[0], tuple))
-        assert(isinstance(arguments[0][0], str))
-        assert(isinstance(arguments[0][1], str))
-        assert(len(arguments) >= len(essay.labels))
-        print(arguments)
-        assert(sum(len(argument.split()) for argument, _, _ in arguments) == len(essay.words))
+
 
 class TestEssayDataset:
     def test_init(self, dataset):
