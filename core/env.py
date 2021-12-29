@@ -4,7 +4,49 @@ import gym
 import torch
 
 from core.dataset import EssayDataset
+from core.models.essay_feedback import EssayModel
 from utils.text import to_sentences
+from utils.grading import prediction_string, to_predictions
+
+class SegmentationEnv(gym.Env):
+    def __init__(self, n_essays=None) -> None:
+        super().__init__()
+        print('Loading Dataset')
+        self.dataset = EssayDataset(n_essays=n_essays)
+        print('Dataset Loaded')
+        self.assigner = EssayModel()
+        self.essay = None
+        self.word_idx = None
+        self.done = None
+
+    @property
+    def state(self):
+        return self.essay.text, self.predictionstrings
+
+    @property
+    def reward(self):
+        reward = 0 if not self.done else self.current_state_value()
+        return reward
+
+    def current_state_value(self):
+        logits = self.assigner(self.essay.text, self.predictionstrings)
+        predictions = to_predictions(self.predictionstrings, logits, self.essay.essay_id)
+        return self.essay.grade(predictions)
+
+    def reset(self):
+        self.essay = self.dataset.random_essay()[0]
+        self.predictionstrings = []
+        self.word_idx = 0
+        self.done = False
+        return self.state
+
+    def step(self, n_words):
+        predictionstring = prediction_string(self.word_idx, self.word_idx + n_words - 1)
+        self.predictionstrings.append(predictionstring)
+        self.word_idx += n_words
+        if self.word_idx + 1 >= len(self.essay.words):
+            self.done = True
+        return self.state, self.reward, self.done
 
 class AssigmentEnv(gym.Env):
     def __init__(self, n_essays=None) -> None:
@@ -44,6 +86,7 @@ class AssigmentEnv(gym.Env):
         self._position = 0
         self.sentence_state = None
         self.argument_state = None
+        return self.state
 
     @property
     def position(self):
