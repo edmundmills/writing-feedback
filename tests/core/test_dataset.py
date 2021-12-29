@@ -5,67 +5,86 @@ import pandas as pd
 
 from core.dataset import *
 
-def test_init(dataset):
-    assert(len(dataset) == 10)
+class TestEssay:
+    def test_polarity_pairs(self, essay):
+        pairs, labels = essay.polarity_pairs()
+        assert(isinstance(pairs, list))
+        assert(isinstance(labels, list))
+        assert(len(pairs) == len(labels))
+        assert(min(labels) >= -1)
+        assert(max(labels) <= 1)
 
-def test_idx(dataset):
-    essay = dataset[0]
-    assert(isinstance(essay, Essay))
+    def test_words(self, essay):
+        words = essay.words
+        assert(isinstance(words, list))
+        assert(isinstance(words[0], str))
 
-def test_random_essay(dataset):
-    random_essay = dataset.random_essay(num_essays=5)
-    assert(len(random_essay) == 5)
-    assert(isinstance(random_essay[0], Essay))
+    def test_all_argumnets(self, essay):
+        arguments = essay.all_arguments()
+        assert(isinstance(arguments, list))
+        assert(isinstance(arguments[0], tuple))
+        assert(isinstance(arguments[0][0], str))
+        assert(isinstance(arguments[0][1], str))
+        assert(len(arguments) >= len(essay.labels))
+        print(arguments)
+        assert(sum(len(argument.split()) for argument, _ in arguments) == len(essay.words))
 
-def test_random_span(dataset):
-    random_span = dataset.random_span(num_words=5, num_spans=10)
-    assert(len(random_span) == 10)
-    assert(isinstance(random_span[0], str))
-    assert(len(random_span[0].split()) == 5)
+class TestEssayDataset:
+    def test_init(self, dataset):
+        assert(len(dataset) == 10)
 
-def test_make_arg_class_dataset(fix_seed, dataset):
-    class_dataset = dataset.make_arg_classification_dataset()
-    assert(isinstance(class_dataset, ClassificationDataset))
-    assert(isinstance(class_dataset[0][0], str))
-    assert(isinstance(class_dataset[0][1], torch.Tensor))
-    assert(len(class_dataset) == len(class_dataset.text))
-    assert(len(class_dataset) == class_dataset.labels.size()[0])
+    def test_idx(self, dataset):
+        essay = dataset[0]
+        assert(isinstance(essay, Essay))
 
-def test_make_balanced_arg_class_dataset(fix_seed, dataset):
-    class_dataset = dataset.make_arg_classification_dataset(balanced=True)
-    assert(isinstance(class_dataset, ClassificationDataset))
-    assert(isinstance(class_dataset[0][0], str))
-    assert(isinstance(class_dataset[0][1], torch.Tensor))
-    assert(len(class_dataset) == len(class_dataset.text))
-    assert(len(class_dataset) == class_dataset.labels.size()[0])
-    assert(torch.sum(torch.eq(class_dataset.labels, 1)) == torch.sum(torch.eq(class_dataset.labels, 2)))
+    def test_random_essay(self, dataset):
+        random_essay = dataset.random_essay(num_essays=5)
+        assert(len(random_essay) == 5)
+        assert(isinstance(random_essay[0], Essay))
 
-def test_polarity_pairs(essay):
-    pairs, labels = essay.polarity_pairs()
-    assert(isinstance(pairs, list))
-    assert(isinstance(labels, list))
-    assert(len(pairs) == len(labels))
-    assert(min(labels) >= -1)
-    assert(max(labels) <= 1)
+    def test_random_span(self, dataset):
+        random_span = dataset.random_span(num_words=5, num_spans=10)
+        assert(len(random_span) == 10)
+        assert(isinstance(random_span[0], str))
+        assert(len(random_span[0].split()) == 5)
 
-def test_split(dataset):
-    train, val = dataset.split()
-    assert(isinstance(train, EssayDataset))
-    assert(isinstance(val, EssayDataset))
-    assert(len(train) == 9)
-    assert(len(val) == 1)
-    assert(set(train.df.loc[:,'id'].unique()) == set(train.essay_ids))
-    assert(set(val.df.loc[:,'id'].unique()) == set(val.essay_ids))
+    def test_make_arg_class_dataset(self, fix_seed, dataset):
+        class_dataset = dataset.make_arg_classification_dataset()
+        assert(isinstance(class_dataset, ClassificationDataset))
+        assert(isinstance(class_dataset[0][0], str))
+        assert(isinstance(class_dataset[0][1], torch.Tensor))
+        assert(len(class_dataset) == len(class_dataset.text))
+        assert(len(class_dataset) == class_dataset.labels.size()[0])
 
-def test_make_polarity_dataset(dataset):
-    polarity_dataset = dataset.make_polarity_dataset()
-    assert(isinstance(polarity_dataset, ComparisonDataset))
-    assert(len(polarity_dataset) == len(polarity_dataset.text_pairs))
-    assert(len(polarity_dataset) == polarity_dataset.labels.size()[0])
-    assert(isinstance(polarity_dataset[0], tuple))
-    assert(all(len(item) == 2 for item in polarity_dataset[:][0]))
-    assert(all(type(item[0]) == str for item in polarity_dataset[:][0]))
-    assert(isinstance(polarity_dataset[0][0], tuple))
-    assert(isinstance(polarity_dataset[0][1], torch.Tensor))
-    assert(isinstance(polarity_dataset[0][0][0], str))
-    assert(isinstance(polarity_dataset[0][0][1], str))
+    def test_make_balanced_arg_class_dataset(self, fix_seed, dataset):
+        class_dataset = dataset.make_arg_classification_dataset(balanced=True)
+        assert(isinstance(class_dataset, ClassificationDataset))
+        assert(isinstance(class_dataset[0][0], str))
+        assert(isinstance(class_dataset[0][1], torch.Tensor))
+        assert(len(class_dataset) == len(class_dataset.text))
+        assert(len(class_dataset) == class_dataset.labels.size()[0])
+        assert(torch.sum(torch.eq(class_dataset.labels, 1)) == torch.sum(torch.eq(class_dataset.labels, 2)))
+
+    def test_split(self, dataset):
+        train, val = dataset.split()
+        assert(isinstance(train, EssayDataset))
+        assert(isinstance(val, EssayDataset))
+        assert(len(train) == 9)
+        assert(len(val) == 1)
+        assert(set(train.df.loc[:,'id'].unique()) == set(train.essay_ids))
+        assert(set(val.df.loc[:,'id'].unique()) == set(val.essay_ids))
+
+    def test_make_polarity_dataset(self, dataset):
+        polarity_dataset = dataset.make_polarity_dataset()
+        assert(isinstance(polarity_dataset, ComparisonDataset))
+        assert(len(polarity_dataset) == len(polarity_dataset.text_pairs))
+        assert(len(polarity_dataset) == polarity_dataset.labels.size()[0])
+        assert(isinstance(polarity_dataset[0], tuple))
+        assert(all(len(item) == 2 for item in polarity_dataset[:][0]))
+        assert(all(type(item[0]) == str for item in polarity_dataset[:][0]))
+        assert(isinstance(polarity_dataset[0][0], tuple))
+        assert(isinstance(polarity_dataset[0][1], torch.Tensor))
+        assert(isinstance(polarity_dataset[0][0][0], str))
+        assert(isinstance(polarity_dataset[0][0][1], str))
+
+

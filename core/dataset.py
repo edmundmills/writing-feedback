@@ -56,6 +56,24 @@ class Essay:
             'false_positives': false_positives,
         }
 
+    @property
+    def words(self) -> List[str]:
+        return self.text.split()
+
+    def all_arguments(self) -> List[Tuple]:
+        arguments = []
+        word_idx = 0
+        for _, row in self.labels.iterrows():
+            word_idxs = [int(num) for num in row.loc['predictionstring'].split()]
+            if word_idxs[0] > word_idx:
+                sentence = ' '.join(self.words[word_idx:word_idxs[0]])
+                arguments.append((sentence, 'None'))
+            arguments.append((row.loc['discourse_text'], row.loc['discourse_type']))
+            word_idx = word_idxs[-1] + 1
+        if len(self.words) < word_idx:
+            arguments.append((self.words[word_idx:], 'None'))
+        return arguments
+
     def polarity_pairs(self):
         text_pairs = []
         labels = []
