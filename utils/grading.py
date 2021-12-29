@@ -27,3 +27,15 @@ def to_predictions(predictionstrings, logits, essay_id):
         }
         predictions.append(prediction)
     return predictions
+
+def pstrings_to_tokens(predictionstrings, text):
+    words = text.split()
+    tokens = []
+    for pstring in predictionstrings:
+        word_idxs = [int(num) for num in pstring.split()]
+        tokens.append('START')
+        tokens.extend(['CONT'] * (len(word_idxs) - 1))
+    while len(tokens) < len(words):
+        tokens.append('MASK')
+    return tokens
+

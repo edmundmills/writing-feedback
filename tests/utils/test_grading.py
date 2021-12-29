@@ -1,6 +1,7 @@
 import pytest
 import torch 
 
+from core.constants import argument_names
 from utils.grading import *
 
 class TestPredictionString:
@@ -79,14 +80,18 @@ class TestIsMatch:
         assert(ismatch(prediction, essay.labels.iloc[1]))
 
 class TestToPrediction:
-    def test_to_predictions_with_strings(self, fix_seed, essay):
-        predictionstrings = ['0 1 2', '3 4 5', '6 7 8 9']
-        logits = torch.FloatTensor(len(predictionstrings), 8)
-        predictions = to_predictions(predictionstrings, logits, 1)
+    def test_to_predictions(self, fix_seed, pstrings, essay):
+        logits = torch.FloatTensor(len(pstrings), len(argument_names))
+        predictions = to_predictions(pstrings, logits, 1)
+        print(predictions)
         grade = essay.grade(predictions)
         print(grade)
         assert(isinstance(predictions, list))
         assert(isinstance(predictions[0], dict))
 
-
-
+class TestPstringsToTokens:
+    def test_valid(self, pstrings, essay):
+        tokens = pstrings_to_tokens(pstrings, essay.text)
+        print(tokens)
+        assert(len(tokens) == len(essay.words))
+        assert(set(tokens) == set(['MASK', 'CONT', 'START']))
