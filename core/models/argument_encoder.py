@@ -1,5 +1,4 @@
 from collections import deque
-from pathlib import Path
 import time
 
 import numpy as np
@@ -12,6 +11,8 @@ from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.dataset import argument_names
+from core.model import Model
+
 
 class MLP(nn.Module):
     def __init__(self, n_inputs, n_outputs, n_layers, layer_size, output_mod=None):
@@ -78,7 +79,7 @@ class MergeAssesor(nn.Module):
         return self.mlp(input)
 
 
-class ArgumentModel(nn.Module):
+class ArgumentModel(Model):
     def __init__(self):
         super().__init__()
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -97,6 +98,32 @@ class ArgumentModel(nn.Module):
         class_eval_metrics = self.eval_classifier(class_dataset, args, n_samples)
         polarity_eval_metrics = self.eval_polarity(polarity_dataset, args, n_samples)
         return {**class_eval_metrics, **polarity_eval_metrics}
+
+    def encode_essay(self, essay):
+        max_args = 20
+        class_dim = 8
+        position_dim = 2
+        polarity_dim = max_args ** 2
+        dim = class_dim + position_dim + polarity_dim
+        encoded = torch.zeros(max_args, dim).to(self.device)
+
+        n_args = len(self.essay.labels)
+
+        # argmument locations
+        encoded[:n_args,0] = list(essay.labels.iloc[:max_args].loc['discourse_start'])
+        encoded[:n_args,1] = list(essay.labels.iloc[:max_args].loc[:,'discourse_end'])
+        
+        # Encode arguments
+        encoded_args = self.encode(list(essay.labels.iloc[:max_args].loc['discourse_text']))
+        class_logits = self.type_classifier(encoded_args)
+        encoded[:n_args,2:10] = class_logits
+
+        # evaluate polarities
+        for idx1, encoded_arg1 in enumerate(encoded_args):
+            for idx2, encoded_arg2 in enumerate(encoded_args):
+                polarity = self.polarity(encoded_arg1, encoded_arg2).item()
+                encoded[idx1, idx2] = polarity
+        return encoded
 
     def eval_classifier(self, dataset, args, n_samples=None):
         n_samples = n_samples or len(dataset)
@@ -249,18 +276,6 @@ class ArgumentModel(nn.Module):
                 wandb.log(metrics, step=step)
         self.save()
 
-    def save(self):
-        model_dir = Path('models') / self.__class__.__name__
-        model_dir.mkdir(parents=True, exist_ok=True)
-        model_file = model_dir / f'{wandb.run.name}.pth' 
-        print(f'Saving model as {model_file}')
-        torch.save(self.state_dict(), model_file)
-        print(f'Model Saved.')
 
-    def load(self, model_name):
-        model_file = Path('models') / self.__class__.__name__ / f'{model_name}.pth'
-        print(f'Loading model from {model_file}')
-        self.load_state_dict(torch.load(model_file))
-        print('Model Loaded')
 
 
