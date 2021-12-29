@@ -1,7 +1,5 @@
-from functools import partial
-from typing import Dict, List
-
-import pandas as pd
+def prediction_string(start:int, stop:int):
+    return ' '.join(str(num) for num in range(start, stop + 1))
 
 def ismatch(prediction, label):
     if prediction['class'] != label.loc['discourse_type']:

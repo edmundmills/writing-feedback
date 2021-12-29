@@ -1,4 +1,15 @@
+import pytest
+
 from utils.grading import *
+
+class TestPredictionString:
+    def test_normal(self):
+        predictionstring = prediction_string(0, 5)
+        assert(predictionstring == '0 1 2 3 4 5')
+
+    def test_same(self):
+        predictionstring = prediction_string(0, 0)
+        assert(predictionstring == '0')
 
 class TestIsMatch:
     def test_exact_match(self, essay):
