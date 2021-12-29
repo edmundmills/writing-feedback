@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 import tqdm
 
-from utils.grading import ismatch
+from utils.grading import ismatch, prediction_string
 
 data_path = Path('data')
 essay_dir = data_path / 'train'
@@ -26,7 +26,6 @@ argument_types = {
         }
 
 argument_names = [k for k, _ in sorted(argument_types.items(), key=lambda x : x[1])]
-
 
 class Essay:
     def __init__(self, essay_id, text, labels) -> None:
@@ -67,11 +66,11 @@ class Essay:
             word_idxs = [int(num) for num in row.loc['predictionstring'].split()]
             if word_idxs[0] > word_idx:
                 sentence = ' '.join(self.words[word_idx:word_idxs[0]])
-                arguments.append((sentence, 'None'))
-            arguments.append((row.loc['discourse_text'], row.loc['discourse_type']))
+                arguments.append((sentence, 'None', prediction_string(word_idx, word_idxs[0] - 1)))
+            arguments.append((row.loc['discourse_text'], row.loc['discourse_type'], row.loc['predictionstring']))
             word_idx = word_idxs[-1] + 1
         if len(self.words) < word_idx:
-            arguments.append((self.words[word_idx:], 'None'))
+            arguments.append((self.words[word_idx:], 'None', prediction_string(word_idx, len(self.words) + 1)))
         return arguments
 
     def polarity_pairs(self):

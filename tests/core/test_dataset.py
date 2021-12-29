@@ -19,7 +19,7 @@ class TestEssay:
         assert(isinstance(words, list))
         assert(isinstance(words[0], str))
 
-    def test_all_argumnets(self, essay):
+    def test_all_arguments(self, essay):
         arguments = essay.all_arguments()
         assert(isinstance(arguments, list))
         assert(isinstance(arguments[0], tuple))
@@ -27,7 +27,7 @@ class TestEssay:
         assert(isinstance(arguments[0][1], str))
         assert(len(arguments) >= len(essay.labels))
         print(arguments)
-        assert(sum(len(argument.split()) for argument, _ in arguments) == len(essay.words))
+        assert(sum(len(argument.split()) for argument, _, _ in arguments) == len(essay.words))
 
 class TestEssayDataset:
     def test_init(self, dataset):
