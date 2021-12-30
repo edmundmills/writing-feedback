@@ -9,19 +9,19 @@ from utils.text import to_sentences
 from utils.grading import prediction_string, to_predictions
 
 class SegmentationEnv(gym.Env):
-    def __init__(self, n_essays=None) -> None:
+    def __init__(self, essay_dataset, word_tokenizer, argument_classifier) -> None:
         super().__init__()
-        print('Loading Dataset')
-        self.dataset = EssayDataset(n_essays=n_essays)
-        print('Dataset Loaded')
-        self.assigner = EssayModel()
+        self.dataset = essay_dataset
+        self.word_tokenizer = word_tokenizer
+        self.argument_classifier = argument_classifier
         self.essay = None
+        self.encoded_essay_text = None
         self.word_idx = None
         self.done = None
 
     @property
     def state(self):
-        return self.essay.text, self.predictionstrings
+        return self.encoded_essay_text, self.predictionstrings
 
     @property
     def reward(self):
@@ -29,7 +29,7 @@ class SegmentationEnv(gym.Env):
         return reward
 
     def current_state_value(self):
-        logits = self.assigner(self.essay.text, self.predictionstrings)
+        logits = self.argument_classifier(self.essay.text, self.predictionstrings)
         predictions = to_predictions(self.predictionstrings, logits, self.essay.essay_id)
         return self.essay.grade(predictions)
 
@@ -38,6 +38,7 @@ class SegmentationEnv(gym.Env):
         self.predictionstrings = []
         self.word_idx = 0
         self.done = False
+        self.encoded_essay_text = self.word_tokenizer.encode_plus(self.essay.text)
         return self.state
 
     def step(self, n_words):

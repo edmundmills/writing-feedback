@@ -90,8 +90,9 @@ class TestToPrediction:
         assert(isinstance(predictions[0], dict))
 
 class TestPstringsToTokens:
-    def test_valid(self, pstrings, essay):
-        tokens = pstrings_to_tokens(pstrings, essay.text)
+    def test_valid(self, pstrings):
+        length = 50
+        tokens = pstrings_to_tokens(pstrings, length)
         print(tokens)
-        assert(len(tokens) == len(essay.words))
+        assert(len(tokens) == length)
         assert(set(tokens) == set(['MASK', 'CONT', 'START']))

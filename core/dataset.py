@@ -147,5 +147,3 @@ class EssayDataset:
         labels = torch.LongTensor(labels)
         print(f'Argument Classification Dataset Created with {len(text)} samples.')
         return ClassificationDataset(text, labels)
-
-
