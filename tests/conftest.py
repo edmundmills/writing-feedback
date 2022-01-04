@@ -1,4 +1,5 @@
 import random
+from typing import List
 
 import numpy as np
 import pytest
@@ -35,4 +36,12 @@ def essay():
 @pytest.fixture
 def pstrings():
     return ['0 1 2', '3 4 5', '6 7 8 9']
+
+@pytest.fixture
+def sentence_encoder():
+    class TestEncoder:
+        def encode(self, sentences: List[str]):
+            return torch.rand(len(sentences), 512)
+    return TestEncoder()
+
 

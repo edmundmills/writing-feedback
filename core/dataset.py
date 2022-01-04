@@ -33,6 +33,16 @@ class ComparisonDataset:
     def __len__(self):
         return len(self.text_pairs)
 
+class EssayFeedbackDataset:
+    def __init__(self, encoded_txt, labels) -> None:
+        self.encoded_txt = encoded_txt
+        self.labels = labels
+    
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return self.encoded_txt[idx], self.labels[idx]
 
 class EssayDataset:
     def __init__(self, n_essays=None, essay_ids=None, full_dataset=None) -> None:
@@ -147,3 +157,14 @@ class EssayDataset:
         labels = torch.LongTensor(labels)
         print(f'Argument Classification Dataset Created with {len(text)} samples.')
         return ClassificationDataset(text, labels)
+
+    def make_essay_feedback_dataset(self, encoder) -> EssayFeedbackDataset:
+        encoded_text = []
+        labels = []
+        for essay in self:
+            d_elems = essay.labels.loc[:,'discourse_text'].tolist()
+            essay_encoded_text = encoder.encode(d_elems)
+            essay_labels = torch.LongTensor([argument_types[dtname] for dtname in essay.labels.loc[:,'discourse_type'].tolist()]).unsqueeze(1)
+            encoded_text.append(essay_encoded_text)
+            labels.append(essay_labels)
+        return EssayFeedbackDataset(encoded_text, labels)
