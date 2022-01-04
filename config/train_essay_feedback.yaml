@@ -1,0 +1,13 @@
+name: train_essay_feedback
+
+epochs: 2
+lr: 5e-5
+batch_size: 32
+
+batches_per_eval: 16
+print_interval: 100
+eval_interval: 500
+
+debug: False
+wandb: True
+seed: 0

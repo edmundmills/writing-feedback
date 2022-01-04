@@ -11,8 +11,8 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def get_config(args):
-    with initialize(config_path='../config'):
+def get_config(filename, args):
+    with initialize(config_path=f'../{filename}'):
         cfg = compose('config.yaml', overrides=args.overrides)
     print(OmegaConf.to_yaml(cfg))        
     return cfg
@@ -20,7 +20,7 @@ def get_config(args):
 def flatten_args(args):
     return flatten(OmegaConf.to_container(args, resolve=True), reducer='dot')
 
-class wandb_run:
+class WandBRun:
     def __init__(self, args):
         self.args = args
 
