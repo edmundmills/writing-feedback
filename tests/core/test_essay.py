@@ -28,6 +28,10 @@ class TestEssay:
         assert(isinstance(essay.d_elems_text, list))
         assert(essay.d_elems_text[0] == essay.labels.iloc[0].loc['discourse_text'])
 
+    def test_pstrings(self, essay):
+        assert(isinstance(essay.pstrings, list))
+        assert(essay.pstrings[0] == essay.labels.iloc[0].loc['predictionstring'])
+
 
 class TestGrade:
     def test_single_prediction(self, essay):

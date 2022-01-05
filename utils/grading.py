@@ -38,3 +38,11 @@ def pstrings_to_tokens(predictionstrings, length):
         tokens.append('MASK')
     return tokens
 
+def get_discourse_elements(text, predictionstrings):
+    txt_words = text.split()
+    des = []
+    for pstring in predictionstrings:
+        de_words = [txt_words[int(num)] for num in pstring.split()]
+        de = ' '.join(de_words)
+        des.append(de)
+    return des

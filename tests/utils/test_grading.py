@@ -96,3 +96,12 @@ class TestPstringsToTokens:
         print(tokens)
         assert(len(tokens) == length)
         assert(set(tokens) == set(['MASK', 'CONT', 'START']))
+
+class TestGetDiscourseElements:
+    def test_valid(self, essay):
+        pstrings = essay.pstrings
+        text = essay.text
+        print(get_discourse_elements(text, pstrings))
+        print(essay.d_elems_text)
+        for d_elem_a, d_elem_b in zip(essay.d_elems_text, get_discourse_elements(text, pstrings)):
+            assert(d_elem_a.split() == d_elem_b.split())
