@@ -35,6 +35,10 @@ class Essay:
     def words(self) -> List[str]:
         return self.text.split()
 
+    @property
+    def d_elems_text(self) -> List[str]:
+        return self.labels.loc[:,'discourse_text'].tolist()
+
     def all_arguments(self) -> List[Tuple]:
         arguments = []
         word_idx = 0

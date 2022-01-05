@@ -24,6 +24,11 @@ class TestEssay:
         print(arguments)
         assert(sum(len(argument.split()) for argument, _, _ in arguments) == len(essay.words))
 
+    def test_d_elems_text(self, essay):
+        assert(isinstance(essay.d_elems_text, list))
+        assert(essay.d_elems_text[0] == essay.labels.iloc[0].loc['discourse_text'])
+
+
 class TestGrade:
     def test_single_prediction(self, essay):
         arg_class = essay.labels.iloc[0]['discourse_type']

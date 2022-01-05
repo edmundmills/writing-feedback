@@ -154,12 +154,11 @@ class EssayDataset:
         encoded_text = []
         labels = []
         for essay in self:
-            d_elems = essay.labels.loc[:,'discourse_text'].tolist()
-            essay_encoded_text = encoder.encode(d_elems)
+            essay_encoded_text = encoder.encode(essay.d_elems_text)
             token_len = essay_encoded_text.size()[0]
             essay_labels = [argument_types[text_label] for text_label
                             in essay.labels.loc[:,'discourse_type'].tolist()]
-            essay_labels = essay_labels[:token_len] + [0]*max(0, token_len - len(essay_labels))
+            essay_labels = essay_labels[:token_len] + [-1]*max(0, token_len - len(essay_labels))
             encoded_text.append(essay_encoded_text)
             labels.append(essay_labels)
         text_tensor = torch.stack(encoded_text, dim=0)

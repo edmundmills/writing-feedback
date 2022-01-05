@@ -65,9 +65,8 @@ class TestEssayDataset:
         assert(isinstance(polarity_dataset[0][0][0], str))
         assert(isinstance(polarity_dataset[0][0][1], str))
 
-    def test_make_essay_feedback_dataset(self, fix_seed, dataset, sentence_encoder):
-        essay = dataset[0]
-        essay_feedback_dataset = dataset.make_essay_feedback_dataset(sentence_encoder)
+    def test_make_essay_feedback_dataset(self, fix_seed, dataset, essay_model):
+        essay_feedback_dataset = dataset.make_essay_feedback_dataset(encoder=essay_model)
         assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
         assert(essay_feedback_dataset[0][0].size() == (32, 512))
         assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
