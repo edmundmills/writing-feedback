@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 import pandas as pd
 import torch
+from torch.utils.data import TensorDataset
 import tqdm
 
 from core.constants import data_path, essay_dir, label_file, argument_names, argument_types
@@ -33,16 +34,6 @@ class ComparisonDataset:
     def __len__(self):
         return len(self.text_pairs)
 
-class EssayFeedbackDataset:
-    def __init__(self, encoded_txt, labels) -> None:
-        self.encoded_txt = encoded_txt
-        self.labels = labels
-    
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        return self.encoded_txt[idx], self.labels[idx]
 
 class EssayDataset:
     def __init__(self, n_essays=None, essay_ids=None, full_dataset=None) -> None:
@@ -150,7 +141,8 @@ class EssayDataset:
             labels = []
             for df in type_dfs:
                 text.extend(list(df.iloc[:min_len].loc[:,'discourse_text']))
-                labels.extend([argument_types[row.loc['discourse_type']] for _, row in df.iloc[:min_len].iterrows()])
+                labels.extend([argument_types[row.loc['discourse_type']]
+                              for _, row in df.iloc[:min_len].iterrows()])
         else:
             text = list(self.df.loc[:,'discourse_text'])
             labels = [argument_types[row.loc['discourse_type']] for _, row in self.df.iterrows()]
@@ -158,13 +150,19 @@ class EssayDataset:
         print(f'Argument Classification Dataset Created with {len(text)} samples.')
         return ClassificationDataset(text, labels)
 
-    def make_essay_feedback_dataset(self, encoder) -> EssayFeedbackDataset:
+    def make_essay_feedback_dataset(self, encoder) -> TensorDataset:
         encoded_text = []
         labels = []
         for essay in self:
             d_elems = essay.labels.loc[:,'discourse_text'].tolist()
             essay_encoded_text = encoder.encode(d_elems)
-            essay_labels = torch.LongTensor([argument_types[dtname] for dtname in essay.labels.loc[:,'discourse_type'].tolist()]).unsqueeze(1)
+            token_len = essay_encoded_text.size()[0]
+            essay_labels = [argument_types[text_label] for text_label
+                            in essay.labels.loc[:,'discourse_type'].tolist()]
+            essay_labels = essay_labels[:token_len] + [0]*max(0, token_len - len(essay_labels))
             encoded_text.append(essay_encoded_text)
             labels.append(essay_labels)
-        return EssayFeedbackDataset(encoded_text, labels)
+        text_tensor = torch.stack(encoded_text, dim=0)
+        label_tensor = torch.LongTensor(labels).unsqueeze(-1)
+        print(text_tensor.size(), label_tensor.size())
+        return TensorDataset(text_tensor, label_tensor)

@@ -41,7 +41,7 @@ def pstrings():
 def sentence_encoder():
     class TestEncoder:
         def encode(self, sentences: List[str]):
-            return torch.rand(len(sentences), 512)
+            return torch.rand(32, 512)
     return TestEncoder()
 
 

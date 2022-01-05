@@ -8,6 +8,8 @@ batches_per_eval: 16
 print_interval: 100
 eval_interval: 500
 
+n_discourse_elem_tokens: 32
+
 debug: False
 wandb: True
 seed: 0

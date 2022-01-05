@@ -14,10 +14,16 @@ class EssayModel(Model):
     def __init__(self, args) -> None:
         super().__init__()
         self.encoder = ArgumentModel()
-        # self.classifier = transformer()
+        self.classifier = nn.Transformer(nhead=args.nhead,
+                                         num_encoder_layers=args.num_encoder_layers,
+                                         num_decoder_layers=args.num_decoder_layers)
+        self.token_len = args.n_discourse_elem_tokens
 
     def encode(self, sample):
-        return self.encoder.encode(sample)
+        token_tensor = self.encoder.encode(sample, self.token_len)
+        padding_size = (max(0, self.token_len - len(sample)), *token_tensor.size()[1:])
+        padded_tensor = torch.cat((token_tensor[:self.token_len, ...], torch.zeros(padding_size)), dim=0)
+        return padded_tensor
 
     def forward(self, text:str, predictionstrings:List[str]):
         pass
