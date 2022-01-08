@@ -29,7 +29,7 @@ if __name__ == '__main__':
         args.print_interval = 10
         args.eval_interval = 50
         args.batches_per_eval = 4
-        args.epochs = 20
+        args.epochs = max(args.epochs, 20)
 
     train, val = dataset.split()
 

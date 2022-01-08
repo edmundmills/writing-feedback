@@ -118,7 +118,7 @@ class EssayDataset:
     def make_polarity_dataset(self) -> ComparisonDataset:
         text_pairs = []
         labels = []
-        for essay in self:
+        for essay in tqdm.tqdm(self):
             pairs, polarity_labels = essay.polarity_pairs()
             text_pairs.extend(pairs)
             labels.extend(polarity_labels)
@@ -154,7 +154,7 @@ class EssayDataset:
         print('Making Essay Feedback Dataset')
         encoded_text = []
         labels = []
-        for essay in self:
+        for essay in tqdm.tqdm(self):
             essay_encoded_text = encoder.encode(essay.d_elems_text)
             token_len = essay_encoded_text.size(0)
             essay_labels = [argument_types[text_label] for text_label
