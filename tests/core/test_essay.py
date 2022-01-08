@@ -50,6 +50,22 @@ class TestGrade:
         assert(metrics['false_positives'] == 0)
         assert(metrics['false_negatives'] == len(essay.labels) - 1)
 
+    def test_none(self, essay):
+        arg_class = essay.labels.iloc[0]['discourse_type']
+        predictionstring = essay.labels.iloc[0]['predictionstring']
+        predictions = [
+            {
+                'id': 0,
+                'class': 'None',
+                'predictionstring': predictionstring,
+            },
+        ]
+        metrics = essay.grade(predictions)
+        assert(metrics['f_score'] == 0)
+        assert(metrics['true_positives'] == 0)
+        assert(metrics['false_positives'] == 0)
+        assert(metrics['false_negatives'] == len(essay.labels))
+
     def test_two_predictions(self, essay):
         arg_class1 = essay.labels.iloc[0]['discourse_type']
         predictionstring1 = essay.labels.iloc[0]['predictionstring']

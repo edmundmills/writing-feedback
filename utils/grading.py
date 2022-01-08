@@ -46,3 +46,17 @@ def get_discourse_elements(text, predictionstrings):
         de = ' '.join(de_words)
         des.append(de)
     return des
+
+def get_label(pstring, essay):
+    for label, labelname in enumerate(argument_names):
+        prediction = {'id': essay.essay_id,
+                      'class': labelname,
+                      'predictionstring': pstring}
+        grading_data = essay.grade([prediction])
+        if grading_data['true_positives'] == 1:
+            return label
+    return 0
+
+def get_labels(pstrings, essay):
+    return [get_label(pstring, essay) for pstring in pstrings]
+        

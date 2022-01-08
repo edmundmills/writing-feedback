@@ -14,6 +14,8 @@ class Essay:
         return essay_dir / f'{self.essay_id}.txt'
 
     def grade(self, predictions:List[Dict]):
+        predictions = [prediction for prediction in predictions
+                       if prediction['class'] != 'None']
         matched_labels = [0] * len(self.labels)
         for prediction in predictions:
             for idx, (_, label) in enumerate(self.labels.iterrows()):
