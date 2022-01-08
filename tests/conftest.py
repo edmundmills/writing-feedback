@@ -17,7 +17,7 @@ torch.cuda.manual_seed_all(0)
 
 class TestEncoder:
     def encode(self, sentences: List[str]):
-        return torch.rand(len(sentences), 512)
+        return torch.rand(len(sentences), 768)
 
 @pytest.fixture
 def fix_seed():
@@ -54,4 +54,5 @@ def essay_feedback_args():
 @pytest.fixture
 def essay_model():
     args = OmegaConf.load('config/train_essay_feedback.yaml')
+    args.num_encoder_layers = 1
     return EssayModel(args, d_elem_encoder=TestEncoder())

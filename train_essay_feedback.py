@@ -33,7 +33,9 @@ if __name__ == '__main__':
 
     train, val = dataset.split()
 
-    essay_model = EssayModel()
+    essay_model = EssayModel(args)
+    train = train.make_essay_feedback_dataset(essay_model)
+    val = val.make_essay_feedback_dataset(essay_model)
     
     with WandBRun(args):
         essay_model.train(train, val, args)

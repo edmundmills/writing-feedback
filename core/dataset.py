@@ -151,11 +151,12 @@ class EssayDataset:
         return ClassificationDataset(text, labels)
 
     def make_essay_feedback_dataset(self, encoder) -> TensorDataset:
+        print('Making Essay Feedback Dataset')
         encoded_text = []
         labels = []
         for essay in self:
             essay_encoded_text = encoder.encode(essay.d_elems_text)
-            token_len = essay_encoded_text.size()[0]
+            token_len = essay_encoded_text.size(0)
             essay_labels = [argument_types[text_label] for text_label
                             in essay.labels.loc[:,'discourse_type'].tolist()]
             essay_labels = essay_labels[:token_len] + [-1]*max(0, token_len - len(essay_labels))
@@ -163,5 +164,5 @@ class EssayDataset:
             labels.append(essay_labels)
         text_tensor = torch.stack(encoded_text, dim=0)
         label_tensor = torch.LongTensor(labels).unsqueeze(-1)
-        print(text_tensor.size(), label_tensor.size())
+        print('Essay Feedback Dataset Created')
         return TensorDataset(text_tensor, label_tensor)
