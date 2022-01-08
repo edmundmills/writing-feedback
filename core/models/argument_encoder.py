@@ -12,29 +12,7 @@ import wandb
 
 from core.dataset import argument_names
 from core.model import Model
-
-
-class MLP(nn.Module):
-    def __init__(self, n_inputs, n_outputs, n_layers, layer_size, output_mod=None):
-        super().__init__()
-        if n_layers == 1:
-                layers = [nn.Linear(n_inputs, n_outputs)]
-        else:
-            layers = [
-                nn.Linear(n_inputs, layer_size),
-                nn.ReLU(),
-            ]
-            for _ in range(n_layers - 2):
-                layers.append(nn.Linear(layer_size, layer_size))
-                layers.append(nn.ReLU())
-            layers.append(nn.Linear(layer_size, n_outputs))
-        if output_mod is not None:
-            layers.append(output_mod)
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, input):
-        return self.model(input)
-
+from utils.networks import MLP
 
 class ArgumentClassifier(nn.Module):
     def __init__(self):
