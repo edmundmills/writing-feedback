@@ -2,6 +2,7 @@ data/
 wandb/
 models/
 !core/models/
+!tests/core/models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
