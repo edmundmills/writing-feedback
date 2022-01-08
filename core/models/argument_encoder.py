@@ -183,8 +183,8 @@ class ArgumentModel(Model):
         batch_size = args.batch_size
 
         self.encoder.train()
-
-        optimizer = AdamW([{'params': self.encoder.parameters(), 'lr': args.encoder_lr},
+    #{'params': self.encoder.parameters(), 'lr': args.encoder_lr}
+        optimizer = AdamW([
                           {'params': self.type_classifier.parameters(), 'lr': args.type_lr},
                           {'params': self.polarity.parameters(), 'lr': args.polarity_lr}],
                           lr=args.encoder_lr)
