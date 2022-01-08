@@ -16,5 +16,5 @@ class TestEssayModel:
     def test_inference(self, essay_model, essay):
         preds = essay_model.inference(essay.text, essay.pstrings)
         assert(preds.size() == (1, 32, 8))
-        assert(torch.sum(preds[:,0,:]).item() == 1)
+        assert(round(torch.sum(preds[:,0,:]).item()) == 1)
         assert(round(torch.sum(preds).item()) == 32)

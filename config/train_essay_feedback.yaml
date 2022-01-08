@@ -1,8 +1,8 @@
 name: train_essay_feedback
 
-epochs: 2
-lr: 5e-5
-batch_size: 32
+epochs: 5
+lr: 1e-3
+batch_size: 128
 
 batches_per_eval: 16
 print_interval: 100
@@ -10,8 +10,11 @@ eval_interval: 500
 
 max_discourse_elements: 32
 
+num_encoder_layers: 2
 nhead: 4
-num_encoder_layers: 3
+num_decoder_layers: 2
+decoder_layer_size: 512
+
 
 debug: False
 wandb: True
