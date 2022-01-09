@@ -1,4 +1,5 @@
-import math
+from collections import deque
+import time
 from typing import List
 
 import numpy as np
@@ -13,8 +14,6 @@ from core.models.argument_encoder import ArgumentModel
 from core.model import Model
 from utils.grading import get_discourse_elements
 from utils.networks import MLP, PositionalEncoder
-
-
 
 
 class EssayDELemClassifier(nn.Module):
@@ -83,9 +82,14 @@ class EssayModel(Model):
         self.essay_feedback.train()
         optimizer = torch.optim.AdamW(self.essay_feedback.parameters(), lr=args.lr)
 
+        running_loss = deque(maxlen=args.print_interval)
+        timestamps = deque(maxlen=args.print_interval)
+        step = 0
+
         for epoch in range(1, args.epochs + 1):
             print(f'Starting Epoch {epoch}')
             for encoded_text, labels in dataloader:
+                step += 1
                 encoded_text = encoded_text.to(self.device)
                 labels = labels.to(self.device)
                 output = self.essay_feedback(src=encoded_text)
@@ -100,42 +104,59 @@ class EssayModel(Model):
                 torch.nn.utils.clip_grad_norm_(self.essay_feedback.parameters(), 1.0)
                 optimizer.step()
 
-                metrics = {'Train Loss': loss.item()}
-                print(metrics)
+                loss = loss.item()
+                running_loss.append(loss)
+                timestamps.append(time.time())
+                metrics = {'Train Loss': loss}
+                
+                if step % args.eval_interval == 0:
+                    eval_metrics = self.eval(val_dataset, args, n_samples=(args.batches_per_eval * args.batch_size))
+                    metrics.update(eval_metrics)
+                    print(f'Step {step}:\t{eval_metrics}')
+
                 if args.wandb:
                     wandb.log(metrics)
+
+                if step % args.print_interval == 0:
+                    print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
+                          f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
 
 
     def eval(self, dataset, args, n_samples=None):
         n_samples = n_samples or len(dataset)
-        self.encoder.eval()
-        # self.classifier.eval()
+        self.essay_feedback.eval()
+
         dataloader = DataLoader(dataset,
                                 batch_size=args.batch_size,
                                 num_workers=4,
-                                drop_last=True,
                                 sampler=RandomSampler(dataset))
         losses = []
         preds = []
         labels = []
-        for step, (sample, label) in enumerate(dataloader):
-            gpu_label = label.to(self.device)
+        for step, (encoded_text, label) in enumerate(dataloader, start=1):
+            label = label.to(self.device)
+            encoded_text = encoded_text.to(self.device)
             with torch.no_grad():
-                encodings = self.encode(sample)
-                logits = self.classifier(encodings)
-                loss = F.cross_entropy(logits, gpu_label)
+                output = self.essay_feedback(src=encoded_text)
+                label = label.squeeze(-1)
+                msk = (label != -1)
+                output = output[msk]
+                label = label[msk]
+                loss = F.cross_entropy(output, label)
             losses.append(loss.item())
-            logits = logits.cpu().numpy()
-            pred = np.argmax(logits, axis=1).squeeze()
-            label = label.numpy().squeeze()
+            output = output.cpu().numpy()
+            pred = np.argmax(output, axis=-1).flatten()
+            label = label.cpu().numpy().flatten()
             preds.extend(pred)
             labels.extend(label)
-            if (step + 1) * args.batch_size >= n_samples:
+            if step * args.batch_size >= n_samples:
                 break
         avg_loss = sum(losses) / len(losses)
-        avg_acc = sum(np.equal(pred, label)) / len(pred)
-        self.encoder.train()
-        confusion_matrix = wandb.plot.confusion_matrix(y_true=labels, preds=preds, class_names=argument_names)
-        return {'Type Classifier/Eval Loss': avg_loss,
-                'Type Classifier/Eval Accuracy': avg_acc,
-                'Type Classifier/Confusion Matrix': confusion_matrix}
+        avg_acc = sum(np.equal(preds, labels)) / len(preds)
+        self.essay_feedback.train()
+        metrics = {'Eval Loss': avg_loss,
+                   'Eval Accuracy': avg_acc}
+        if args.wandb:
+            confusion_matrix = wandb.plot.confusion_matrix(y_true=labels, preds=preds, class_names=argument_names)
+            metrics.update({'Confusion Matrix': confusion_matrix})
+        return metrics
