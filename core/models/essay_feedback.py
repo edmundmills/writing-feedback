@@ -13,7 +13,7 @@ from core.constants import argument_names
 from core.models.argument_encoder import ArgumentModel
 from core.model import Model
 from utils.grading import get_discourse_elements
-from utils.networks import MLP, PositionalEncoder
+from utils.networks import MLP, PositionalEncoder, Mode
 
 
 class EssayDELemClassifier(nn.Module):
@@ -49,11 +49,12 @@ class EssayModel(Model):
         self.max_d_elems = args.max_discourse_elements
         self.d_elem_encoder = d_elem_encoder or ArgumentModel()
         self.positional_encoder = PositionalEncoder(self.max_d_elems)
-        self.essay_feedback = EssayDELemClassifier(max_d_elems=args.max_discourse_elements,
-                                                   num_encoder_layers=args.num_encoder_layers,
-                                                   nhead=args.nhead,
-                                                   linear_layers=args.num_decoder_layers,
-                                                   linear_layer_size=args.decoder_layer_size).to(self.device)
+        self.essay_feedback = EssayDELemClassifier(
+            max_d_elems=args.max_discourse_elements,
+            num_encoder_layers=args.num_encoder_layers,
+            nhead=args.nhead,
+            linear_layers=args.num_decoder_layers,
+            linear_layer_size=args.decoder_layer_size).to(self.device)
 
     def encode(self, sample):
         encoded_tensor = self.d_elem_encoder.encode(sample).cpu()
@@ -79,81 +80,80 @@ class EssayModel(Model):
                                 num_workers=4,
                                 sampler=RandomSampler(train_dataset))
         
-        self.essay_feedback.train()
-        optimizer = torch.optim.AdamW(self.essay_feedback.parameters(), lr=args.lr)
+        with Mode(self.essay_feedback, mode='train'):
+            optimizer = torch.optim.AdamW(self.essay_feedback.parameters(), lr=args.lr)
 
-        running_loss = deque(maxlen=args.print_interval)
-        timestamps = deque(maxlen=args.print_interval)
-        step = 0
+            running_loss = deque(maxlen=args.print_interval)
+            timestamps = deque(maxlen=args.print_interval)
+            step = 0
 
-        for epoch in range(1, args.epochs + 1):
-            print(f'Starting Epoch {epoch}')
-            for encoded_text, labels in dataloader:
-                step += 1
-                encoded_text = encoded_text.to(self.device)
-                labels = labels.to(self.device)
-                output = self.essay_feedback(src=encoded_text)
-                labels = labels.squeeze(-1)
-                msk = (labels != -1)
-                output = output[msk]
-                labels = labels[msk]
-                loss = F.cross_entropy(output, labels)
+            for epoch in range(1, args.epochs + 1):
+                print(f'Starting Epoch {epoch}')
+                for encoded_text, labels in dataloader:
+                    step += 1
+                    encoded_text = encoded_text.to(self.device)
+                    labels = labels.to(self.device)
+                    output = self.essay_feedback(src=encoded_text)
+                    labels = labels.squeeze(-1)
+                    msk = (labels != -1)
+                    output = output[msk]
+                    labels = labels[msk]
+                    loss = F.cross_entropy(output, labels)
 
-                optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.essay_feedback.parameters(), 1.0)
-                optimizer.step()
+                    optimizer.zero_grad()
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.essay_feedback.parameters(), 1.0)
+                    optimizer.step()
 
-                loss = loss.item()
-                running_loss.append(loss)
-                timestamps.append(time.time())
-                metrics = {'Train Loss': loss}
-                
-                if step % args.eval_interval == 0:
-                    eval_metrics = self.eval(val_dataset, args, n_samples=(args.batches_per_eval * args.batch_size))
-                    metrics.update(eval_metrics)
-                    print(f'Step {step}:\t{eval_metrics}')
+                    loss = loss.item()
+                    running_loss.append(loss)
+                    timestamps.append(time.time())
+                    metrics = {'Train Loss': loss}
+                    
+                    if step % args.eval_interval == 0:
+                        eval_metrics = self.eval(val_dataset, args, n_samples=(args.batches_per_eval * args.batch_size))
+                        metrics.update(eval_metrics)
+                        print(f'Step {step}:\t{eval_metrics}')
 
-                if args.wandb:
-                    wandb.log(metrics)
+                    if args.wandb:
+                        wandb.log(metrics)
 
-                if step % args.print_interval == 0:
-                    print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
-                          f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
+                    if step % args.print_interval == 0:
+                        print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
+                            f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
 
 
     def eval(self, dataset, args, n_samples=None):
         n_samples = n_samples or len(dataset)
-        self.essay_feedback.eval()
+        with Mode(self.essay_feedback, mode='eval'):
 
-        dataloader = DataLoader(dataset,
-                                batch_size=args.batch_size,
-                                num_workers=4,
-                                sampler=RandomSampler(dataset))
-        losses = []
-        preds = []
-        labels = []
-        for step, (encoded_text, label) in enumerate(dataloader, start=1):
-            label = label.to(self.device)
-            encoded_text = encoded_text.to(self.device)
-            with torch.no_grad():
-                output = self.essay_feedback(src=encoded_text)
-                label = label.squeeze(-1)
-                msk = (label != -1)
-                output = output[msk]
-                label = label[msk]
-                loss = F.cross_entropy(output, label)
-            losses.append(loss.item())
-            output = output.cpu().numpy()
-            pred = np.argmax(output, axis=-1).flatten()
-            label = label.cpu().numpy().flatten()
-            preds.extend(pred)
-            labels.extend(label)
-            if step * args.batch_size >= n_samples:
-                break
-        avg_loss = sum(losses) / len(losses)
-        avg_acc = sum(np.equal(preds, labels)) / len(preds)
-        self.essay_feedback.train()
+            dataloader = DataLoader(dataset,
+                                    batch_size=args.batch_size,
+                                    num_workers=4,
+                                    sampler=RandomSampler(dataset))
+            losses = []
+            preds = []
+            labels = []
+            for step, (encoded_text, label) in enumerate(dataloader, start=1):
+                label = label.to(self.device)
+                encoded_text = encoded_text.to(self.device)
+                with torch.no_grad():
+                    output = self.essay_feedback(src=encoded_text)
+                    label = label.squeeze(-1)
+                    msk = (label != -1)
+                    output = output[msk]
+                    label = label[msk]
+                    loss = F.cross_entropy(output, label)
+                losses.append(loss.item())
+                output = output.cpu().numpy()
+                pred = np.argmax(output, axis=-1).flatten()
+                label = label.cpu().numpy().flatten()
+                preds.extend(pred)
+                labels.extend(label)
+                if step * args.batch_size >= n_samples:
+                    break
+            avg_loss = sum(losses) / len(losses)
+            avg_acc = sum(np.equal(preds, labels)) / len(preds)
         metrics = {'Eval Loss': avg_loss,
                    'Eval Accuracy': avg_acc}
         if args.wandb:

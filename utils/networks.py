@@ -4,8 +4,28 @@ import torch
 import torch.nn as nn
 
 
+
+class Mode:
+    def __init__(self, module, mode:str) -> None:
+        self.module = module
+        self.mode = mode
+        self.initial_mode_training = self.module.training
+    
+    def __enter__(self):
+        if self.mode == 'train':
+            self.module.train()
+        elif self.mode == 'eval':
+            self.module.eval()            
+
+    def __exit__(self, *args, **kwargs):
+        if self.initial_mode_training:
+            self.module.train()
+        else:
+            self.module.eval()
+
 class MLP(nn.Module):
-    def __init__(self, n_inputs, n_outputs, n_layers, layer_size, output_mod=None):
+    def __init__(self, n_inputs, n_outputs, n_layers, layer_size,
+                 output_mod=None, dropout:float=None):
         super().__init__()
         if n_layers == 1:
                 layers = [nn.Linear(n_inputs, n_outputs)]
@@ -14,9 +34,13 @@ class MLP(nn.Module):
                 nn.Linear(n_inputs, layer_size),
                 nn.ReLU(),
             ]
+            if dropout:
+                layers.append(nn.Dropout(p=dropout))
             for _ in range(n_layers - 2):
                 layers.append(nn.Linear(layer_size, layer_size))
                 layers.append(nn.ReLU())
+                if dropout:
+                    layers.append(nn.Dropout(p=dropout))
             layers.append(nn.Linear(layer_size, n_outputs))
         if output_mod is not None:
             layers.append(output_mod)
@@ -24,7 +48,7 @@ class MLP(nn.Module):
 
     def forward(self, input):
         return self.model(input)
-    
+
 
 class PositionalEncoder(nn.Module):
     def __init__(self, d_model, max_seq_len=768):
