@@ -1,5 +1,5 @@
-from collections import deque
 import time
+from collections import deque
 from typing import List
 
 import numpy as np
@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.constants import argument_names
-from core.models.argument_encoder import ArgumentModel
 from core.model import Model
+from core.models.argument_encoder import ArgumentModel
 from utils.grading import get_discourse_elements
 from utils.networks import MLP, PositionalEncoder, Mode
 
@@ -22,24 +22,24 @@ class EssayDELemClassifier(nn.Module):
         self.max_d_elems = max_d_elems
         self.num_encoder_layers = num_encoder_layers
         self.nhead = nhead
-        encoder_layer = nn.TransformerEncoderLayer(d_model=768,
+        self.linear = MLP(n_inputs=769,
+                           n_outputs=16,
+                           n_layers=linear_layers,
+                           layer_size=linear_layer_size,
+                           dropout=0.1)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=16,
                                                    nhead=nhead,
                                                    batch_first=True)
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
-        self.decoder = MLP(n_inputs=768,
-                           n_outputs=len(argument_names),
-                           n_layers=linear_layers,
-                           layer_size=linear_layer_size)
+        self.attention = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
+        self.classifier = MLP(n_inputs=16,
+                              n_outputs=len(argument_names),
+                              n_layers=1,
+                              layer_size=None)
 
-    def eval(self):
-        self.encoder.eval()
-
-    def train(self):
-        self.encoder.train()
-
-    def forward(self, src):
-        encoded = self.encoder(src)
-        preds = self.decoder(encoded)
+    def forward(self, x):
+        x = self.linear(x)
+        x = self.attention(x)
+        preds = self.classifier(x)
         return preds
 
 
@@ -59,6 +59,8 @@ class EssayModel(Model):
     def encode(self, sample):
         encoded_tensor = self.d_elem_encoder.encode(sample).cpu()
         encoded_tensor = self.positional_encoder(encoded_tensor)
+        d_elem_lens = torch.LongTensor([len(d_elem.split()) for d_elem in sample]).unsqueeze(-1)
+        encoded_tensor = torch.cat((d_elem_lens, encoded_tensor), dim=-1)
         padding_size = (max(0, self.max_d_elems - len(sample)), *encoded_tensor.size()[1:])
         padded_tensor = torch.cat((encoded_tensor[:self.max_d_elems, ...],
                                    -torch.ones(padding_size)), dim=0)

@@ -68,7 +68,7 @@ class TestEssayDataset:
     def test_make_essay_feedback_dataset(self, fix_seed, dataset, essay_model):
         essay_feedback_dataset = dataset.make_essay_feedback_dataset(encoder=essay_model)
         assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
-        assert(essay_feedback_dataset[0][0].size() == (32, 768))
+        assert(essay_feedback_dataset[0][0].size() == (32, 769))
         assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
         assert(essay_feedback_dataset[0][1].size() == (32, 1))
 

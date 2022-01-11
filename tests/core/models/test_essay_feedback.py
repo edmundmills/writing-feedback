@@ -11,7 +11,7 @@ class TestEssayModel:
         essay_model = EssayModel(essay_feedback_args, d_elem_encoder=d_elem_encoder)
         d_elems = essay.d_elems_text
         encoded_essay = essay_model.encode(d_elems)
-        assert(encoded_essay.size() == (essay_feedback_args.max_discourse_elements, 768))
+        assert(encoded_essay.size() == (essay_feedback_args.max_discourse_elements, 769))
 
     def test_inference(self, essay_model, essay):
         preds = essay_model.inference(essay.text, essay.pstrings)

@@ -15,9 +15,11 @@ np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
+encoded_sentence_length = 768
+
 class TestEncoder:
     def encode(self, sentences: List[str]):
-        return torch.rand(len(sentences), 768)
+        return torch.rand(len(sentences), encoded_sentence_length)
 
 @pytest.fixture
 def fix_seed():
