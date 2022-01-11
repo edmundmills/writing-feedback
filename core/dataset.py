@@ -164,5 +164,6 @@ class EssayDataset:
             labels.append(essay_labels)
         text_tensor = torch.stack(encoded_text, dim=0)
         label_tensor = torch.LongTensor(labels).unsqueeze(-1)
+        dataset = TensorDataset(text_tensor, label_tensor)
         print('Essay Feedback Dataset Created')
-        return TensorDataset(text_tensor, label_tensor)
+        return dataset

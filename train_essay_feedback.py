@@ -22,14 +22,14 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    if not args.debug:
-        dataset = EssayDataset()
-    else:
+    if args.debug:
         dataset = EssayDataset(n_essays=200)
         args.print_interval = 10
         args.eval_interval = 50
         args.batches_per_eval = 4
         args.epochs = max(args.epochs, 20)
+    else:
+        dataset = EssayDataset()
 
     train, val = dataset.split()
 
@@ -38,4 +38,4 @@ if __name__ == '__main__':
     val = val.make_essay_feedback_dataset(essay_model)
     
     with WandBRun(args):
-        essay_model.train(train, val, args)
+        essay_model.train_segmented(train, val, args)

@@ -17,21 +17,22 @@ from utils.networks import MLP, PositionalEncoder, Mode
 
 
 class EssayDELemClassifier(nn.Module):
-    def __init__(self, max_d_elems, num_encoder_layers, nhead, linear_layers, linear_layer_size):
+    def __init__(self, max_d_elems, num_attention_layers, nhead, linear_layers,
+                 linear_layer_size, intermediate_layer_size, dropout):
         super().__init__()
         self.max_d_elems = max_d_elems
-        self.num_encoder_layers = num_encoder_layers
+        self.num_encoder_layers = num_attention_layers
         self.nhead = nhead
         self.linear = MLP(n_inputs=769,
-                           n_outputs=16,
+                           n_outputs=intermediate_layer_size,
                            n_layers=linear_layers,
                            layer_size=linear_layer_size,
-                           dropout=0.1)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=16,
+                           dropout=dropout)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=intermediate_layer_size,
                                                    nhead=nhead,
                                                    batch_first=True)
-        self.attention = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
-        self.classifier = MLP(n_inputs=16,
+        self.attention = nn.TransformerEncoder(encoder_layer, num_attention_layers)
+        self.classifier = MLP(n_inputs=intermediate_layer_size,
                               n_outputs=len(argument_names),
                               n_layers=1,
                               layer_size=None)
@@ -51,10 +52,12 @@ class EssayModel(Model):
         self.positional_encoder = PositionalEncoder(self.max_d_elems)
         self.essay_feedback = EssayDELemClassifier(
             max_d_elems=args.max_discourse_elements,
-            num_encoder_layers=args.num_encoder_layers,
+            num_attention_layers=args.num_attention_layers,
             nhead=args.nhead,
-            linear_layers=args.num_decoder_layers,
-            linear_layer_size=args.decoder_layer_size).to(self.device)
+            linear_layers=args.num_linear_layers,
+            linear_layer_size=args.linear_layer_size,
+            intermediate_layer_size=args.intermediate_layer_size,
+            dropout=args.dropout).to(self.device)
 
     def encode(self, sample):
         encoded_tensor = self.d_elem_encoder.encode(sample).cpu()
@@ -76,7 +79,7 @@ class EssayModel(Model):
         self.essay_feedback.train()
         return preds
 
-    def train(self, train_dataset, val_dataset, args):
+    def train_segmented(self, train_dataset, val_dataset, args):
         dataloader = DataLoader(train_dataset,
                                 batch_size=args.batch_size,
                                 num_workers=4,
