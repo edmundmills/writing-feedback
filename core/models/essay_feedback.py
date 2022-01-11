@@ -95,7 +95,7 @@ class EssayModel(Model):
                     step += 1
                     encoded_text = encoded_text.to(self.device)
                     labels = labels.to(self.device)
-                    output = self.essay_feedback(src=encoded_text)
+                    output = self.essay_feedback(encoded_text)
                     labels = labels.squeeze(-1)
                     msk = (labels != -1)
                     output = output[msk]
@@ -140,7 +140,7 @@ class EssayModel(Model):
                 label = label.to(self.device)
                 encoded_text = encoded_text.to(self.device)
                 with torch.no_grad():
-                    output = self.essay_feedback(src=encoded_text)
+                    output = self.essay_feedback(encoded_text)
                     label = label.squeeze(-1)
                     msk = (label != -1)
                     output = output[msk]

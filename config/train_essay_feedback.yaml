@@ -11,7 +11,7 @@ eval_interval: 500
 max_discourse_elements: 32
 
 num_encoder_layers: 2
-nhead: 4
+nhead: 8
 num_decoder_layers: 2
 decoder_layer_size: 512
 
