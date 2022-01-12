@@ -12,7 +12,7 @@ from utils.config import parse_args, get_config, WandBRun
 
 if __name__ == '__main__':
     args = parse_args()
-    args = get_config('train_arg_model', args)
+    args = get_config('arg_model', args)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
