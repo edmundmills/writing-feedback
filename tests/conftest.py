@@ -8,6 +8,7 @@ import torch
 
 from core.dataset import EssayDataset
 from core.env import AssigmentEnv
+from core.essay import Prediction
 from core.models.essay_feedback import EssayModel
 
 random.seed(0)
@@ -43,6 +44,10 @@ def essay():
 @pytest.fixture
 def pstrings():
     return ['0 1 2', '3 4 5', '6 7 8 9']
+
+@pytest.fixture
+def prediction():
+    return Prediction(0, 10, 1, 1)
 
 @pytest.fixture
 def d_elem_encoder():

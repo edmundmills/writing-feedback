@@ -2,8 +2,32 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from core.constants import essay_dir
-from utils.grading import ismatch, prediction_string
+from core.constants import essay_dir, argument_names
+from utils.grading import get_labels, ismatch, prediction_string
+
+class Prediction:
+    def __init__(self, start, stop, label, essay_id) -> None:
+        self.start = start
+        self.stop = stop
+        self.label = label
+        self.essay_id = essay_id
+
+    @property
+    def word_idxs(self):
+        return list(range(self.start, self.stop + 1))
+
+    @property
+    def pstring(self):
+        return ' '.join(str(num) for num in self.word_idxs)
+
+    @property
+    def argument_name(self):
+        return argument_names[self.label]
+
+    def formatted(self):
+        return {'id': self.essay_id,
+                'class': argument_names[self.label],
+                'predictionstring': self.pstring}
 
 class Essay:
     def __init__(self, essay_id, text, labels) -> None:
@@ -14,6 +38,9 @@ class Essay:
     @property
     def path(self):
         return essay_dir / f'{self.essay_id}.txt'
+
+    def get_labels(self, predictions):
+        return get_labels([pred.pstring for pred in predictions], self)
 
     def grade(self, predictions:List[Dict]):
         predictions = [prediction for prediction in predictions

@@ -1,4 +1,9 @@
-
+class TestPrediction:
+    def test_formatted(self, prediction):
+        formatted = prediction.formatted()
+        assert(formatted['id'] == prediction.essay_id)
+        assert(formatted['predictionstring'] == prediction.pstring)
+        assert(formatted['class'] == prediction.argument_name)
 
 class TestEssay:
     def test_polarity_pairs(self, essay):
