@@ -181,6 +181,7 @@ class TestGetLabel:
         assert(grading_data['true_positives'] == 0)
         assert(grading_data['false_positives'] == 0)
 
+
 class TestGetLabels:
     def all_correct(self, essay):
         labels = get_labels(essay.pstrings, essay)
@@ -192,4 +193,12 @@ class TestGetLabels:
         ]
         grading_data = essay.grade(predictions)
         assert(grading_data['f_score'] == 1)
+
+    def with_num_specified(self, essay):
+        labels = get_labels(essay.pstrings, essay, num_d_elems=10)
+        assert(len(labels) == 10)
+        labels = get_labels(essay.pstrings, essay, num_d_elems=2)
+        assert(len(labels) == 2)
+        labels = get_labels(essay.pstrings, essay, num_d_elems=40)
+        assert(len(labels) == 40)
 

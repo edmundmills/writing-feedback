@@ -41,6 +41,10 @@ class TestEssay:
         nums = set(nums)
         assert(nums == set(range(len(essay.words))))
 
+    def test_random_pstrings_with_max(self, essay):
+        pstrings = essay.random_pstrings(max_d_elems=2)
+        assert(len(pstrings) <= 2)
+
 class TestGrade:
     def test_single_prediction(self, essay):
         arg_class = essay.labels.iloc[0]['discourse_type']

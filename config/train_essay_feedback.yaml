@@ -12,11 +12,12 @@ max_discourse_elements: 32
 
 num_attention_layers: 2
 nhead: 8
-num_linear_layers: 2
+num_linear_layers: 3
 linear_layer_size: 512
-intermediate_layer_size: 16
-dropout: 0.1
+intermediate_layer_size: 64
+dropout: 0.3
 
+use_correct_segments: False
 debug: False
 wandb: True
 seed: 0

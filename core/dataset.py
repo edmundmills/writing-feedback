@@ -9,7 +9,7 @@ import tqdm
 
 from core.constants import data_path, essay_dir, label_file, argument_names, argument_types
 from core.essay import Essay
-
+from utils.grading import get_discourse_elements, get_label, get_labels
  
 class ClassificationDataset:
     def __init__(self, text:List[str], labels:torch.Tensor):
@@ -150,16 +150,22 @@ class EssayDataset:
         print(f'Argument Classification Dataset Created with {len(text)} samples.')
         return ClassificationDataset(text, labels)
 
-    def make_essay_feedback_dataset(self, encoder) -> TensorDataset:
+    def make_essay_feedback_dataset(self, encoder, randomize_segments=False) -> TensorDataset:
         print('Making Essay Feedback Dataset')
         encoded_text = []
         labels = []
         for essay in tqdm.tqdm(self):
-            essay_encoded_text = encoder.encode(essay.d_elems_text)
-            token_len = essay_encoded_text.size(0)
-            essay_labels = [argument_types[text_label] for text_label
-                            in essay.labels.loc[:,'discourse_type'].tolist()]
-            essay_labels = essay_labels[:token_len] + [-1]*max(0, token_len - len(essay_labels))
+            if not randomize_segments:
+                essay_encoded_text = encoder.encode(essay.d_elems_text)
+                token_len = essay_encoded_text.size(0)
+                essay_labels = [argument_types[text_label] for text_label
+                                in essay.labels.loc[:,'discourse_type'].tolist()]
+                essay_labels = essay_labels[:token_len] + [-1]*max(0, token_len - len(essay_labels))
+            else:
+                pstrings = essay.random_pstrings(max_d_elems=encoder.max_d_elems)
+                essay_labels = get_labels(pstrings, essay, num_d_elems=encoder.max_d_elems)
+                d_elems = get_discourse_elements(essay.text, pstrings)
+                essay_encoded_text = encoder.encode(d_elems)
             encoded_text.append(essay_encoded_text)
             labels.append(essay_labels)
         text_tensor = torch.stack(encoded_text, dim=0)

@@ -57,6 +57,9 @@ def get_label(pstring, essay):
             return label
     return 0
 
-def get_labels(pstrings, essay):
-    return [get_label(pstring, essay) for pstring in pstrings]
+def get_labels(pstrings, essay, num_d_elems=None):
+    labels = [get_label(pstring, essay) for pstring in pstrings]
+    if num_d_elems:
+        labels = labels[:num_d_elems] + [-1] * max(0, num_d_elems - len(labels))
+    return labels
         

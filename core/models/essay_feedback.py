@@ -12,7 +12,7 @@ import wandb
 from core.constants import argument_names
 from core.model import Model
 from core.models.argument_encoder import ArgumentModel
-from utils.grading import get_discourse_elements
+from utils.grading import get_discourse_elements, get_labels
 from utils.networks import MLP, PositionalEncoder, Mode
 
 
@@ -79,7 +79,55 @@ class EssayModel(Model):
         self.essay_feedback.train()
         return preds
 
-    def train_segmented(self, train_dataset, val_dataset, args):
+    def train(self, train_dataset, val_dataset, args):
+        with Mode(self.essay_feedback, mode='train'):
+            optimizer = torch.optim.AdamW(self.essay_feedback.parameters(), lr=args.lr)
+
+            running_loss = deque(maxlen=args.print_interval)
+            timestamps = deque(maxlen=args.print_interval)
+            step = 0
+
+            for epoch in range(1, args.epochs + 1):
+                print(f'Starting Epoch {epoch}')
+                for essay in train_dataset:
+                    pstrings = essay.random_pstrings()
+                    labels = get_labels(pstrings, essay, num_d_elems=self.max_d_elems)
+                    labels = torch.LongTensor(labels).to(self.device)
+                    d_elems = get_discourse_elements(essay.text, pstrings)
+                    with torch.no_grad():
+                        encoded_text = self.encode(d_elems).to(self.device)
+
+                    output = self.essay_feedback(encoded_text)
+                    msk = (labels != -1)
+                    output = output[msk]
+                    labels = labels[msk]
+                    loss = F.cross_entropy(output, labels)
+
+                    optimizer.zero_grad()
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.essay_feedback.parameters(), 1.0)
+                    optimizer.step()
+
+                    loss = loss.item()
+                    running_loss.append(loss)
+                    timestamps.append(time.time())
+                    metrics = {'Train Loss': loss}
+                    
+                    if step % args.eval_interval == 0:
+                        eval_metrics = self.eval(val_dataset, args, n_samples=(args.batches_per_eval * args.batch_size))
+                        metrics.update(eval_metrics)
+                        print(f'Step {step}:\t{eval_metrics}')
+
+                    if args.wandb:
+                        wandb.log(metrics)
+
+                    if step % args.print_interval == 0:
+                        print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
+                            f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
+            
+                    
+
+    def train(self, train_dataset, val_dataset, args):
         dataloader = DataLoader(train_dataset,
                                 batch_size=args.batch_size,
                                 num_workers=4,
@@ -94,7 +142,7 @@ class EssayModel(Model):
 
             for epoch in range(1, args.epochs + 1):
                 print(f'Starting Epoch {epoch}')
-                for encoded_text, labels in dataloader:
+                for (encoded_text, labels) in dataloader:
                     step += 1
                     encoded_text = encoded_text.to(self.device)
                     labels = labels.to(self.device)
@@ -127,11 +175,9 @@ class EssayModel(Model):
                         print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
                             f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
 
-
     def eval(self, dataset, args, n_samples=None):
         n_samples = n_samples or len(dataset)
         with Mode(self.essay_feedback, mode='eval'):
-
             dataloader = DataLoader(dataset,
                                     batch_size=args.batch_size,
                                     num_workers=4,

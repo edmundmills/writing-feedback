@@ -125,12 +125,12 @@ class Essay:
             # labels.extend(0 for _ in evidences)
         return text_pairs, labels
 
-    def random_pstrings(self) -> List[str]:
+    def random_pstrings(self, max_d_elems=None) -> List[str]:
         pstrings = []
         i = 0
         n_words = len(self.words)
-        while i < n_words:
-            n = int(np.random.poisson(lam=3) * 13/3)
+        while i < n_words and (max_d_elems is None or len(pstrings) < max_d_elems):
+            n = int(np.random.poisson(lam=3) * 15/3)
             n = max(n, 5)
             pstring = prediction_string(i, min(i+n, n_words - 1))
             pstrings.append(pstring)

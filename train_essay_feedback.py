@@ -34,8 +34,11 @@ if __name__ == '__main__':
     train, val = dataset.split()
 
     essay_model = EssayModel(args)
-    train = train.make_essay_feedback_dataset(essay_model)
-    val = val.make_essay_feedback_dataset(essay_model)
-    
+
+    train = train.make_essay_feedback_dataset(
+        essay_model, randomize_segments=(not args.use_correct_segments))
+    val = val.make_essay_feedback_dataset(
+        essay_model, randomize_segments=(not args.use_correct_segments))
+
     with WandBRun(args):
-        essay_model.train_segmented(train, val, args)
+        essay_model.train(train, val, args)
