@@ -21,6 +21,7 @@ class TestSegmentationEnv:
         seg_env.reset()
         state, reward, done = seg_env.step(prediction)
         assert(isinstance(state, State))
+        assert(len(state.predictions) == 1)
         assert(isinstance(reward, float))
         assert(not done)
 

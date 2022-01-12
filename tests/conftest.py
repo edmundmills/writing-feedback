@@ -18,10 +18,17 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
 encoded_sentence_length = 768
+encoded_essay_length = 1024
 
 class TestEncoder:
     def encode(self, sentences: List[str]):
         return torch.rand(len(sentences), encoded_sentence_length)
+
+class TestSegmentationTokenizer:
+    def encode(self, text:str):
+        encoded_text = torch.LongTensor(list(range(encoded_essay_length))).unsqueeze(0)
+        attention_mask = torch.ones(1, encoded_essay_length)
+        return {'input_ids': encoded_text, 'attention_mask': attention_mask}
 
 @pytest.fixture
 def fix_seed():
@@ -73,7 +80,25 @@ def seg_agent():
 @pytest.fixture
 def seg_env():
     dataset = EssayDataset(n_essays=10)
-    args = OmegaConf.load('config/segmentation.yaml')
-    encoder = SegmentationAgent(args)
+    encoder = TestSegmentationTokenizer()
     env = SegmentationEnv(dataset, encoder, None)
     return env
+
+@pytest.fixture
+def seg_tokenizer():
+    return TestSegmentationTokenizer()
+
+@pytest.fixture
+def encoded_essay():
+    return TestSegmentationTokenizer().encode('')
+
+@pytest.fixture
+def encoded_preds():
+    preds = [0]*500 + [-1]* (encoded_essay_length - 500)
+    preds[0] = 1
+    preds[20] = 1
+    preds[60] = 1
+    preds[90] = 1
+    preds[100] = 1
+    return torch.LongTensor(preds).unsqueeze(0)
+

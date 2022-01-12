@@ -10,7 +10,7 @@ from core.models.essay_feedback import EssayModel
 from utils.text import to_sentences
 from utils.grading import get_labels, prediction_string, to_predictions
 
-State = namedtuple('State', 'encoded_text predictions')
+State = namedtuple('State', 'encoded_text predictions word_idx essay_id attention_mask')
 
 class SegmentationEnv(gym.Env):
     def __init__(self, essay_dataset, word_tokenizer, argument_classifier) -> None:
@@ -26,7 +26,11 @@ class SegmentationEnv(gym.Env):
 
     @property
     def state(self):
-        return State(self.encoded_essay_text, self.predictions)
+        return State(self.encoded_essay_text,
+                     self.predictions,
+                     self.word_idx,
+                     self.essay.essay_id,
+                     self.attention_mask)
 
     def current_state_value(self):
         # logits = self.argument_classifier(self.essay.text, self.predictionstrings)
@@ -45,7 +49,9 @@ class SegmentationEnv(gym.Env):
         self.predictions = []
         self.word_idx = 0
         self.done = False
-        self.encoded_essay_text = self.word_tokenizer.encode(self.essay.text)
+        encoded = self.word_tokenizer.encode(self.essay.text)
+        self.encoded_essay_text = encoded['input_ids']
+        self.attention_mask = encoded['attention_mask']
         return self.state
 
     def step(self, prediction):

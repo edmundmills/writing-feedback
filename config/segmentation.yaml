@@ -4,6 +4,7 @@ print_interval: 100
 eval_interval: 500
 
 
+essay_max_tokens: 1024
 action_space_dim: 256
 
 debug: False
