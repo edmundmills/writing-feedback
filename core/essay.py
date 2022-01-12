@@ -1,5 +1,7 @@
 from typing import Dict, List, Tuple
 
+import numpy as np
+
 from core.constants import essay_dir
 from utils.grading import ismatch, prediction_string
 
@@ -122,3 +124,15 @@ class Essay:
             # text_pairs.extend(((lead, evidence) for evidence in evidences))
             # labels.extend(0 for _ in evidences)
         return text_pairs, labels
+
+    def random_pstrings(self) -> List[str]:
+        pstrings = []
+        i = 0
+        n_words = len(self.words)
+        while i < n_words:
+            n = int(np.random.poisson(lam=3) * 13/3)
+            n = max(n, 5)
+            pstring = prediction_string(i, min(i+n, n_words - 1))
+            pstrings.append(pstring)
+            i += n + 1
+        return pstrings

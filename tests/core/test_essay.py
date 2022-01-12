@@ -32,6 +32,14 @@ class TestEssay:
         assert(isinstance(essay.pstrings, list))
         assert(essay.pstrings[0] == essay.labels.iloc[0].loc['predictionstring'])
 
+    def test_random_pstrings(self, essay):
+        pstrings = essay.random_pstrings()
+        assert(isinstance(pstrings, list))
+        assert(isinstance(pstrings[0], str))
+        assert(all([isinstance(int(num), int) for num in pstrings[0].split()]))
+        nums = [int(num) for pstring in pstrings for num in pstring.split()]
+        nums = set(nums)
+        assert(nums == set(range(len(essay.words))))
 
 class TestGrade:
     def test_single_prediction(self, essay):
