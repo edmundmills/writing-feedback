@@ -1,16 +1,21 @@
 from functools import partial
+from collections import namedtuple
 
 import gym
 import torch
 
+from core.constants import argument_names
 from core.dataset import EssayDataset
 from core.models.essay_feedback import EssayModel
 from utils.text import to_sentences
-from utils.grading import prediction_string, to_predictions
+from utils.grading import get_labels, prediction_string, to_predictions
+
+State = namedtuple('State', 'encoded_text predictions')
 
 class SegmentationEnv(gym.Env):
     def __init__(self, essay_dataset, word_tokenizer, argument_classifier) -> None:
         super().__init__()
+
         self.dataset = essay_dataset
         self.word_tokenizer = word_tokenizer
         self.argument_classifier = argument_classifier
@@ -21,33 +26,37 @@ class SegmentationEnv(gym.Env):
 
     @property
     def state(self):
-        return self.encoded_essay_text, self.predictionstrings
-
-    @property
-    def reward(self):
-        reward = 0 if not self.done else self.current_state_value()
-        return reward
+        return State(self.encoded_essay_text, self.predictions)
 
     def current_state_value(self):
-        logits = self.argument_classifier(self.essay.text, self.predictionstrings)
-        predictions = to_predictions(self.predictionstrings, logits, self.essay.essay_id)
-        return self.essay.grade(predictions)
+        # logits = self.argument_classifier(self.essay.text, self.predictionstrings)
+        # predictions = to_predictions(self.predictionstrings, logits, self.essay.essay_id)
+        labels = self.essay.get_labels(self.predictions)
+        predictions = [
+            {'id': self.essay.essay_id,
+             'class': argument_names[label],
+             'predictionstring': prediction.pstring} for (prediction, label)
+            in zip(self.predictions, labels)
+        ]
+        return self.essay.grade(predictions)['f_score']
 
     def reset(self):
         self.essay = self.dataset.random_essay()[0]
-        self.predictionstrings = []
+        self.predictions = []
         self.word_idx = 0
         self.done = False
-        self.encoded_essay_text = self.word_tokenizer.encode_plus(self.essay.text)
+        self.encoded_essay_text = self.word_tokenizer.encode(self.essay.text)
         return self.state
 
-    def step(self, n_words):
-        predictionstring = prediction_string(self.word_idx, self.word_idx + n_words - 1)
-        self.predictionstrings.append(predictionstring)
-        self.word_idx += n_words
+    def step(self, prediction):
+        init_value = self.current_state_value()
+        self.predictions.append(prediction)
+        self.word_idx = prediction.stop
         if self.word_idx + 1 >= len(self.essay.words):
             self.done = True
-        return self.state, self.reward, self.done
+        reward = self.current_state_value() - init_value
+        return self.state, reward, self.done
+
 
 class AssigmentEnv(gym.Env):
     def __init__(self, n_essays=None) -> None:

@@ -89,14 +89,6 @@ class TestToPrediction:
         assert(isinstance(predictions, list))
         assert(isinstance(predictions[0], dict))
 
-class TestPstringsToTokens:
-    def test_valid(self, pstrings):
-        length = 50
-        tokens = pstrings_to_tokens(pstrings, length)
-        print(tokens)
-        assert(len(tokens) == length)
-        assert(set(tokens) == set(['MASK', 'CONT', 'START']))
-
 class TestGetDiscourseElements:
     def test_valid(self, essay):
         pstrings = essay.pstrings

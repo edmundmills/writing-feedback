@@ -6,23 +6,34 @@ import wandb
 from core.env import SegmentationEnv
 from core.model import Model
 from core.models.essay_feedback import EssayModel
-from utils.grading import pstrings_to_tokens, to_predictions
+from utils.grading import to_predictions
+
+
+def to_tokens(predictions, num_words):
+    tokens = []
+    for pred in predictions:
+        tokens.append('START')
+        tokens.extend(['CONT'] * (len(pred.word_idxs) - 1))
+    while len(tokens) < num_words:
+        tokens.append('MASK')
+    return tokens
 
 
 class SegmentationAgent(Model):
-    def __init__(self):
+    def __init__(self, args):
         super().__init__()
-        self.n_outputs = 256 # could possibly drop to 200
+        self.action_space_dim = args.action_space_dim # could possibly drop to 200
         # self.tokenizer = 
         # self.model = Longformer Classifier
-        self.argument_classifier = EssayModel()
-        self.argument_classifier.eval()
 
-    def __call__(self, text:str) -> List[str]:
+
+    def encode(self,text:str):
         pass
 
-    def act(self, encoded_text, pstrings):
-        encoded_pstrings = pstrings_to_tokens(pstrings, encoded_text.size()[0])
+
+
+    def act(self, state):
+        encoded_pstrings = to_tokens(state.predictions, state.encoded_text.size()[0])
         with torch.no_grad():
             pass
             # plength = self.model(encoded_text, encoded_pstrings).item()

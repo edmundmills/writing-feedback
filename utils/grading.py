@@ -28,16 +28,6 @@ def to_predictions(predictionstrings, logits, essay_id):
         predictions.append(prediction)
     return predictions
 
-def pstrings_to_tokens(predictionstrings, length):
-    tokens = []
-    for pstring in predictionstrings:
-        word_idxs = [int(num) for num in pstring.split()]
-        tokens.append('START')
-        tokens.extend(['CONT'] * (len(word_idxs) - 1))
-    while len(tokens) < length:
-        tokens.append('MASK')
-    return tokens
-
 def get_discourse_elements(text, predictionstrings):
     txt_words = text.split()
     des = []

@@ -6,17 +6,36 @@ import pytest
 from core.env import *
 from core.dataset import Essay
 
-def test_reset(env):
-    env.reset()
-    assert(env.done == False)
-    assert(env.reward == 0)
-    assert(isinstance(env.essay, Essay))
-    assert(isinstance(env.sentences, list))
-    position = torch.zeros(env.max_sentences)
-    position[0] = 1
-    assert(torch.equal(env.position, position))
 
-class TestStep:
+class TestSegmentationEnv:
+    def test_init(self, seg_agent, dataset):
+        env = SegmentationEnv(dataset, seg_agent, None)
+        assert(isinstance(env, SegmentationEnv))
+
+    def test_reset(self, seg_env):
+        state = seg_env.reset()
+        assert(isinstance(state, State))
+        assert(not seg_env.done)
+    
+    def test_act(self, seg_env, prediction):
+        seg_env.reset()
+        state, reward, done = seg_env.step(prediction)
+        assert(isinstance(state, State))
+        assert(isinstance(reward, float))
+        assert(not done)
+
+
+class TestAssignmentEnv:
+    def test_reset(self, env):
+        env.reset()
+        assert(env.done == False)
+        assert(env.reward == 0)
+        assert(isinstance(env.essay, Essay))
+        assert(isinstance(env.sentences, list))
+        position = torch.zeros(env.max_sentences)
+        position[0] = 1
+        assert(torch.equal(env.position, position))
+
     def test_env_done(self, env):
         env.done = True
         with pytest.raises(RuntimeError):

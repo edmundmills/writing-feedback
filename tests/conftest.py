@@ -7,9 +7,10 @@ import pytest
 import torch
 
 from core.dataset import EssayDataset
-from core.env import AssigmentEnv
+from core.env import AssigmentEnv, SegmentationEnv
 from core.essay import Prediction
 from core.models.essay_feedback import EssayModel
+from core.models.segmentation_agent import SegmentationAgent
 
 random.seed(0)
 np.random.seed(0)
@@ -63,3 +64,16 @@ def essay_model():
     args = OmegaConf.load('config/essay_feedback.yaml')
     args.num_encoder_layers = 1
     return EssayModel(args, d_elem_encoder=TestEncoder())
+
+@pytest.fixture
+def seg_agent():
+    args = OmegaConf.load('config/segmentation.yaml')
+    return SegmentationAgent(args)
+
+@pytest.fixture
+def seg_env():
+    dataset = EssayDataset(n_essays=10)
+    args = OmegaConf.load('config/segmentation.yaml')
+    encoder = SegmentationAgent(args)
+    env = SegmentationEnv(dataset, encoder, None)
+    return env

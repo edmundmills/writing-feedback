@@ -1,0 +1,11 @@
+name: segmentation
+
+print_interval: 100
+eval_interval: 500
+
+
+action_space_dim: 256
+
+debug: False
+wandb: True
+seed: 0
