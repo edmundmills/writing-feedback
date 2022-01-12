@@ -50,11 +50,11 @@ def d_elem_encoder():
 
 @pytest.fixture
 def essay_feedback_args():
-    args = OmegaConf.load('config/train_essay_feedback.yaml')
+    args = OmegaConf.load('config/essay_feedback.yaml')
     return args
 
 @pytest.fixture
 def essay_model():
-    args = OmegaConf.load('config/train_essay_feedback.yaml')
+    args = OmegaConf.load('config/essay_feedback.yaml')
     args.num_encoder_layers = 1
     return EssayModel(args, d_elem_encoder=TestEncoder())
