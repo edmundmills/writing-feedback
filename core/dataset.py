@@ -1,4 +1,5 @@
 from csv import DictReader
+from lib2to3.pgen2 import token
 import random
 from typing import List, Tuple
 
@@ -160,11 +161,11 @@ class EssayDataset:
             encoded = tokenizer.encode(essay.text)
             input_ids.append(encoded['input_ids'])
             attention_masks.append(encoded['attention_mask'])
-            labels.append(to_tokens(essay.correct_predictions, tokenizer.max_tokens))
+            label_tokens = to_tokens(essay.correct_predictions, tokenizer.max_tokens)
+            labels.append(torch.LongTensor(label_tokens))
         input_ids = torch.cat(input_ids, dim=0)
         attention_masks = torch.cat(attention_masks, dim=0)
-        labels = np.array(labels)
-        labels = torch.LongTensor(labels)
+        labels = torch.stack(labels, dim=0)
         dataset = TensorDataset(input_ids, attention_masks, labels)
         print('NER Dataset Created')
         return dataset

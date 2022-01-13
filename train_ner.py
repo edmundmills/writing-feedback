@@ -4,10 +4,8 @@ import numpy as np
 import random
 import transformers
 import torch
-from wandb.integration.sb3 import WandbCallback
 
-from core.env import SegmentationEnv
-from core.models.segmentation import SegmentationTokenizer, make_agent
+from core.models.segmentation import SegmentationModel, SegmentationTokenizer
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun
@@ -27,16 +25,20 @@ if __name__ == '__main__':
     if args.debug:
         dataset = EssayDataset(n_essays=200)
         args.print_interval = 10
-        args.eval_interval = 50
-        args.train_steps = 100
+        args.eval_interval = 10
+        args.eval_samples = 10
+        args.ner_epochs = max(args.ner_epochs, 20)
     else:
         dataset = EssayDataset()
 
     train, val = dataset.split()
 
     tokenizer = SegmentationTokenizer(args)
-    env = SegmentationEnv(train, tokenizer, None, args)
-    agent = make_agent(args, env)
- 
+
+    train = train.make_ner_dataset(tokenizer)
+    val = val.make_ner_dataset(tokenizer)
+
+    model = SegmentationModel(args)
+
     with WandBRun(args):
-        agent.learn(total_timesteps=args.rl_train_steps)
+        model.train_ner(train, val, args)

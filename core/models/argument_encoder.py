@@ -11,8 +11,7 @@ from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.dataset import argument_names
-from core.model import Model
-from utils.networks import MLP
+from utils.networks import MLP, Model
 
 class ArgumentClassifier(nn.Module):
     def __init__(self):

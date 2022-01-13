@@ -1,31 +1,172 @@
+from collections import deque
+import time
+
 import gym
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, RandomSampler
 from transformers import LongformerTokenizer, LongformerModel
+import wandb
 
-from utils.networks import MLP
+from utils.networks import MLP, Model, Mode
 
 
-class SegmentationModel(nn.Module):
+class SegmentationTokenizer:
+    def __init__(self, args):
+        super().__init__()
+        self.max_tokens = args.essay_max_tokens
+        self.tokenizer = LongformerTokenizer.from_pretrained('allenai/longformer-base-4096')
+
+    def encode(self,text:str):
+        tokenized = self.tokenizer.encode_plus(text,
+                                             max_length=self.max_tokens,
+                                             padding='max_length',
+                                             truncation=True,
+                                             return_tensors='pt',
+                                             return_attention_mask=True)
+        return tokenized
+
+
+class SegmentationModel(Model):
     def __init__(self, args) -> None:
         super().__init__()
-        self.transformer = LongformerModel.from_pretrained('allenai/longformer-base-4096')
-        self.classifier = MLP(768, 2, args.linear_layers, args.linear_layer_size, dropout=0.1)
-        self.args = args
+        print('Loading SegmentationModel')
+        self.transformer = LongformerModel.from_pretrained(
+            'allenai/longformer-base-4096').to(self.device)
+        self.classifier = MLP(768,
+                              2,
+                              args.linear_layers,
+                              args.linear_layer_size,
+                              dropout=0.1).to(self.device)
+        print('SegmentationModel Loaded')
 
-    def forward(self, essay_tokens):
+    def split_essay_tokens(self, essay_tokens):
         essay_tokens = essay_tokens.long()
-        tokenized_text, attention_mask = torch.chunk(essay_tokens, 2, dim=-2)
-        tokenized_text = tokenized_text.squeeze(-2)
+        input_ids, attention_mask = torch.chunk(essay_tokens, 2, dim=-2)
+        input_ids = input_ids.squeeze(-2)
         attention_mask = attention_mask.squeeze(-2)
-        with torch.no_grad():
-            encoded = self.transformer(tokenized_text, attention_mask=attention_mask)
-        logits = self.classifier(encoded.last_hidden_state)
-        output, _ = torch.chunk(logits, 2, dim=-1)
-        return output.flatten(1)
+        return input_ids, attention_mask
+
+    def forward(self, input_ids, attention_mask=None, single_dim_output=True):
+        if attention_mask is None:
+            input_ids, attention_mask = self.split_essay_tokens(input_ids)
+        encoded = self.transformer(input_ids, attention_mask=attention_mask)
+        output = self.classifier(encoded.last_hidden_state)
+        if single_dim_output:
+            output, _ = torch.chunk(output, 2, dim=-1)
+            output = output.flatten(1)
+        return output
+
+    def train_ner(self, train_dataset, val_dataset, args):
+        dataloader = DataLoader(train_dataset,
+                                batch_size=args.ner_batch_size,
+                                num_workers=4,
+                                sampler=RandomSampler(train_dataset))
+        optimizer = torch.optim.AdamW(self.parameters(), lr=args.ner_lr)
+
+        with Mode(self, 'train'):
+            step = 0
+            running_loss = deque(maxlen=args.print_interval)
+            timestamps = deque(maxlen=args.print_interval)
+
+            for epoch in range(1, args.ner_epochs + 1):
+                print(f'Starting Epoch {epoch}')
+                for input_ids, attention_masks, labels in dataloader:
+                    step += 1
+                    input_ids = input_ids.to(self.device)
+                    attention_masks = attention_masks.to(self.device)
+                    labels = labels.to(self.device).squeeze()
+
+                    logits = self(input_ids, attention_masks, single_dim_output=False).squeeze()                    
+                    msk = (labels != -1)
+                    logits = logits[msk]
+                    labels = labels[msk]
+                    loss = F.cross_entropy(logits, labels)
+
+                     
+                    if step % args.ner_grad_accumulation == 0:
+                        grad_steps = step // args.ner_grad_accumulation
+                        optimizer.zero_grad()
+                        loss.backward()
+                        torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+                        optimizer.step()
+
+                        loss = loss.item()
+                        running_loss.append(loss)
+                        timestamps.append(time.time())
+                        metrics = {
+                            'Train Loss': loss,
+                        }
+
+                        if grad_steps % args.print_interval == 0:
+                            print(f'Step {grad_steps}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
+                                f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
+
+                        if grad_steps % args.eval_interval == 0:
+                            eval_metrics = self.evaluate(val_dataset, args, n_samples=args.eval_samples)
+                            metrics.update(eval_metrics)
+                            print(f'Step {grad_steps}:\t{eval_metrics}')
+
+                        if args.wandb:
+                            wandb.log(metrics, step=grad_steps)
+
+    def evaluate(self, dataset, args, n_samples=None):
+        n_samples = n_samples or len(dataset)
+        with Mode(self, 'eval'):
+            dataloader = DataLoader(dataset,
+                                    batch_size=args.ner_batch_size,
+                                    num_workers=4,
+                                    sampler=RandomSampler(dataset))
+            losses = []
+            preds = []
+            labels = []
+            p_pos = []
+            for step, (input_ids, attention_mask, label) in enumerate(dataloader, start=1):
+                label = label.to(self.device)
+                input_ids = input_ids.to(self.device)
+                attention_mask = attention_mask.to(self.device)
+                with torch.no_grad():
+                    output = self(input_ids, attention_mask, single_dim_output=False).squeeze()
+                    label = label.squeeze()
+                    msk = (label != -1)
+                    output = output[msk]
+                    label = label[msk]
+                    loss = F.cross_entropy(output, label)
+                losses.append(loss.item())
+                probs = F.softmax(output, dim=-1).cpu().numpy()
+                pred = np.argmax(probs, axis=-1).flatten()
+                label = label.cpu().numpy().flatten()
+                preds.extend(pred)
+                labels.extend(label)
+                sample_p_pos = list(probs[:,1])
+                p_pos.extend(sample_p_pos)
+                if step * args.ner_batch_size >= n_samples:
+                    break
+            avg_loss = sum(losses) / len(losses)
+            avg_p_pos = sum(p_pos) / len(p_pos)
+            p_pos_var = np.var(p_pos)
+            correct = np.equal(preds, labels)
+            avg_acc = sum(correct) / len(preds)
+            pos = np.equal(preds, 1)
+            true_pos = np.logical_and(pos, correct)
+            false_neg = np.logical_and(1-pos,1-correct)
+            f_score = sum(true_pos) / (sum(true_pos)
+                                       + .5*(sum(pos) - sum(true_pos) + sum(false_neg)))
+        metrics = {'Eval Loss': avg_loss,
+                   'Eval Accuracy': avg_acc,
+                   'F-Score': f_score,
+                   'Avg Positive Prob': avg_p_pos,
+                   'Positive Prob Variance': p_pos_var}
+        if args.wandb:
+            confusion_matrix = wandb.plot.confusion_matrix(y_true=labels, preds=preds, class_names=['Divide', 'Continue'])
+            metrics.update({'Confusion Matrix': confusion_matrix})
+        return metrics
+
+
 
 
 class EssayFeatures(BaseFeaturesExtractor):
@@ -50,22 +191,6 @@ class EssayFeatures(BaseFeaturesExtractor):
         return output
 
 
-class SegmentationTokenizer:
-    def __init__(self, args):
-        super().__init__()
-        # self.action_space_dim = args.action_space_dim # could possibly drop to 200
-        self.max_tokens = args.essay_max_tokens
-        self.tokenizer = LongformerTokenizer.from_pretrained('allenai/longformer-base-4096')
-        # self.model = SegmentationModel(args).to(self.device)
-
-    def encode(self,text:str):
-        tokenized = self.tokenizer.encode_plus(text,
-                                             max_length=self.max_tokens,
-                                             padding='max_length',
-                                             truncation=True,
-                                             return_tensors='pt',
-                                             return_attention_mask=True)
-        return tokenized
 
 
 def make_agent(args, env):

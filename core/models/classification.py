@@ -10,10 +10,9 @@ from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.constants import argument_names
-from core.model import Model
 from core.models.argument_encoder import ArgumentModel
 from utils.grading import get_discourse_elements, get_labels
-from utils.networks import MLP, PositionalEncoder, Mode
+from utils.networks import Model, MLP, PositionalEncoder, Mode
 
 
 class EssayDELemClassifier(nn.Module):

@@ -60,7 +60,7 @@ def to_tokens(predictions, num_words):
         tokens.extend([0] * (len(pred.word_idxs) - 1))
     while len(tokens) < num_words:
         tokens.append(-1)
-    return np.array(tokens, dtype=np.int8)
+    return np.array(tokens[:num_words], dtype=np.int8)
 
 def start_num(pstring):
     return int(pstring.split()[0])

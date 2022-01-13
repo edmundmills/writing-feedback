@@ -1,15 +1,22 @@
 name: segmentation
 
-print_interval: 100
-eval_interval: 500
+print_interval: 10
+eval_interval: 50
+eval_samples: 512
 
-train_steps: 1e6
+essay_max_tokens: 1024
 
 linear_layers: 3
 linear_layer_size: 512
 
-essay_max_tokens: 1024
-action_space_dim: 256
+ner_lr: 2e-5
+ner_epochs: 10
+ner_batch_size: 1
+ner_grad_accumulation: 32
+
+rl_train_steps: 1e6
+rl_envs: 8
+rl_action_space_dim: 256
 
 debug: False
 wandb: True
