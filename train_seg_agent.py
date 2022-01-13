@@ -4,9 +4,10 @@ import numpy as np
 import random
 import transformers
 import torch
+from wandb.integration.sb3 import WandbCallback
 
 from core.env import SegmentationEnv
-from core.models.segmentation import SegmentationTokenizer, make_agent, Logging
+from core.models.segmentation import SegmentationTokenizer, make_agent
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun
@@ -38,4 +39,4 @@ if __name__ == '__main__':
     agent = make_agent(args, env)
  
     with WandBRun(args):
-        agent.learn(total_timesteps=args.train_steps, callback=Logging(args))
+        agent.learn(total_timesteps=args.train_steps)

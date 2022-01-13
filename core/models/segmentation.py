@@ -1,25 +1,22 @@
-from typing import DefaultDict, Dict, List
-
 import gym
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
-from stable_baselines3.common.callbacks import BaseCallback
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from transformers import LongformerTokenizer, LongformerModel
-import wandb
 
-from core.essay import Prediction
-from core.model import Model
-from utils.grading import to_predictions
 
 class SegmentationModel(nn.Module):
     def __init__(self, args) -> None:
         super().__init__()
         self.transformer = LongformerModel.from_pretrained('allenai/longformer-base-4096')
-        self.classifier = nn.Linear(768, 2)
+        self.classifier = nn.Sequential(
+            nn.Linear(768, 512),
+            nn.Linear(512, 512),
+            nn.Linear(512, 512),
+            nn.Linear(512, 2)
+        )
 
     def forward(self, essay_tokens):
         essay_tokens = essay_tokens.long()
@@ -55,7 +52,7 @@ class EssayFeatures(BaseFeaturesExtractor):
         return output
 
 
-class SegmentationTokenizer(Model):
+class SegmentationTokenizer:
     def __init__(self, args):
         super().__init__()
         # self.action_space_dim = args.action_space_dim # could possibly drop to 200
@@ -72,21 +69,13 @@ class SegmentationTokenizer(Model):
                                              return_attention_mask=True)
         return tokenized
 
-class Logging(BaseCallback):
-    def __init__(self, args, verbose:int=0):
-        super().__init__(verbose=verbose)
-        self.args = args
-
-    def _on_rollout_end(self) -> None:
-        pass
-
 
 def make_agent(args, env):
     policy_kwargs = dict(
         features_extractor_class=EssayFeatures,
         features_extractor_kwargs=dict(args=args),
         activation_fn=nn.ReLU,
-        net_arch=[dict(pi=[32,32], vf=[32,32])]
+        net_arch=[dict(pi=[256], vf=[256])]
     )
 
     return PPO("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
