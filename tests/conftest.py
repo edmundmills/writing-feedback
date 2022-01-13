@@ -73,6 +73,11 @@ def essay_model():
     return EssayModel(args, d_elem_encoder=TestEncoder())
 
 @pytest.fixture
+def seg_args():
+    args = OmegaConf.load('config/segmentation.yaml')
+    return args
+
+@pytest.fixture
 def seg_agent():
     args = OmegaConf.load('config/segmentation.yaml')
     return SegmentationAgent(args)
@@ -81,7 +86,8 @@ def seg_agent():
 def seg_env():
     dataset = EssayDataset(n_essays=10)
     encoder = TestSegmentationTokenizer()
-    env = SegmentationEnv(dataset, encoder, None)
+    args = OmegaConf.load('config/segmentation.yaml') 
+    env = SegmentationEnv(dataset, encoder, None, args)
     return env
 
 @pytest.fixture

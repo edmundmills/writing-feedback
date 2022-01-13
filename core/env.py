@@ -1,21 +1,29 @@
 from functools import partial
-from collections import namedtuple
 
 import gym
+from gym import spaces
+import numpy as np
 import torch
 
 from core.constants import argument_names
 from core.dataset import EssayDataset
-from core.models.essay_feedback import EssayModel
+from core.essay import Prediction
 from utils.text import to_sentences
-from utils.grading import get_labels, prediction_string, to_predictions
 
-State = namedtuple('State', 'encoded_text predictions word_idx essay_id attention_mask')
+
+def to_tokens(predictions, num_words):
+    tokens = []
+    for pred in predictions:
+        tokens.append(1)
+        tokens.extend([0] * (len(pred.word_idxs) - 1))
+    while len(tokens) < num_words:
+        tokens.append(-1)
+    return np.array(tokens)
+
 
 class SegmentationEnv(gym.Env):
-    def __init__(self, essay_dataset, word_tokenizer, argument_classifier) -> None:
+    def __init__(self, essay_dataset, word_tokenizer, argument_classifier, args) -> None:
         super().__init__()
-
         self.dataset = essay_dataset
         self.word_tokenizer = word_tokenizer
         self.argument_classifier = argument_classifier
@@ -23,18 +31,27 @@ class SegmentationEnv(gym.Env):
         self.encoded_essay_text = None
         self.word_idx = None
         self.done = None
+        self.max_words = args.essay_max_tokens
+        self.action_space = spaces.Discrete(args.action_space_dim)
+        self.observation_space = spaces.Dict({
+            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words)),
+            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,))
+        })
+
+    @property
+    def prediction_tokens(self):
+        return to_tokens(self.predictions,
+                         num_words=min(self.max_words, self.max_words))
 
     @property
     def state(self):
-        return State(self.encoded_essay_text,
-                     self.predictions,
-                     self.word_idx,
-                     self.essay.essay_id,
-                     self.attention_mask)
-
+        state = {
+            'essay_tokens': self.essay_tokens,
+            'pred_tokens': self.prediction_tokens
+        }
+        return state
+        
     def current_state_value(self):
-        # logits = self.argument_classifier(self.essay.text, self.predictionstrings)
-        # predictions = to_predictions(self.predictionstrings, logits, self.essay.essay_id)
         labels = self.essay.get_labels(self.predictions)
         predictions = [
             {'id': self.essay.essay_id,
@@ -52,16 +69,20 @@ class SegmentationEnv(gym.Env):
         encoded = self.word_tokenizer.encode(self.essay.text)
         self.encoded_essay_text = encoded['input_ids']
         self.attention_mask = encoded['attention_mask']
+        self.essay_tokens = torch.cat((self.encoded_essay_text,
+                                         self.attention_mask), dim=0).numpy()
         return self.state
 
-    def step(self, prediction):
+    def step(self, action:int):
         init_value = self.current_state_value()
-        self.predictions.append(prediction)
-        self.word_idx = prediction.stop
+        pred_end = min(self.word_idx + action - 1, len(self.essay.words) - 1)
+        self.predictions.append(Prediction(self.word_idx, pred_end, -1, self.essay.essay_id))
+        self.word_idx += action
         if self.word_idx + 1 >= len(self.essay.words):
             self.done = True
         reward = self.current_state_value() - init_value
-        return self.state, reward, self.done
+        info = {}
+        return self.state, reward, self.done, info
 
 
 class AssigmentEnv(gym.Env):

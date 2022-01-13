@@ -12,15 +12,6 @@ from core.model import Model
 from utils.grading import to_predictions
 
 
-def to_tokens(predictions, num_words):
-    tokens = []
-    for pred in predictions:
-        tokens.append(1)
-        tokens.extend([0] * (len(pred.word_idxs) - 1))
-    while len(tokens) < num_words:
-        tokens.append(-1)
-    return torch.LongTensor(tokens).unsqueeze(0)
-
 class SegmentationModel(nn.Module):
     def __init__(self, args) -> None:
         super().__init__()

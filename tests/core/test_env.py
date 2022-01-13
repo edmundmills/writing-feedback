@@ -1,27 +1,35 @@
-from pathlib import Path
-
-import pandas as pd
 import pytest
+
+from stable_baselines3.common.env_checker import check_env
 
 from core.env import *
 from core.dataset import Essay
 
 
+class TestPstringsToTokens:
+    def test_valid(self, prediction):
+        length = 50
+        tokens = to_tokens([prediction], length)
+        print(tokens)
+        assert(len(tokens) == length)
+        assert(set(tokens) == set((-1, 0, 1)))
+
+
 class TestSegmentationEnv:
-    def test_init(self, seg_agent, dataset):
-        env = SegmentationEnv(dataset, seg_agent, None)
+    def test_init(self, seg_agent, dataset, seg_args):
+        env = SegmentationEnv(dataset, seg_agent, None, seg_args)
         assert(isinstance(env, SegmentationEnv))
+        check_env(env)
 
     def test_reset(self, seg_env):
         state = seg_env.reset()
-        assert(isinstance(state, State))
+        assert(isinstance(state, dict))
         assert(not seg_env.done)
     
-    def test_act(self, seg_env, prediction):
+    def test_act(self, seg_env):
         seg_env.reset()
-        state, reward, done = seg_env.step(prediction)
-        assert(isinstance(state, State))
-        assert(len(state.predictions) == 1)
+        state, reward, done, info = seg_env.step(1)
+        assert(isinstance(state, dict))
         assert(isinstance(reward, float))
         assert(not done)
 

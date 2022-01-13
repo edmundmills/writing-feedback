@@ -3,13 +3,6 @@ import torch
 from core.essay import Prediction
 from core.models.segmentation_agent import *
 
-class TestPstringsToTokens:
-    def test_valid(self, prediction):
-        length = 50
-        tokens = to_tokens([prediction], length)
-        print(tokens)
-        assert(tokens.size(1) == length)
-        assert(set(tokens.squeeze().tolist()) == set((-1, 0, 1)))
 
 class TestSegmentationModel:
     def test_call(self, encoded_essay, encoded_preds, seg_agent):

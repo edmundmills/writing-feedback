@@ -15,6 +15,7 @@ pandas = "*"
 tqdm = "*"
 sentence-transformers = "*"
 nltk = "*"
+stable-baselines3 = {extras = ["extra"], version = "*"}
 
 [dev-packages]
 pytest = "*"
