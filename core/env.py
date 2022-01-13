@@ -9,17 +9,7 @@ from core.constants import argument_names
 from core.dataset import EssayDataset
 from core.essay import Prediction
 from utils.text import to_sentences
-
-
-def to_tokens(predictions, num_words):
-    tokens = []
-    for pred in predictions:
-        tokens.append(1)
-        tokens.extend([0] * (len(pred.word_idxs) - 1))
-    while len(tokens) < num_words:
-        tokens.append(-1)
-    return np.array(tokens, dtype=np.int8)
-
+from utils.grading import to_tokens
 
 class SegmentationEnv(gym.Env):
     def __init__(self, essay_dataset, word_tokenizer, argument_classifier, args) -> None:

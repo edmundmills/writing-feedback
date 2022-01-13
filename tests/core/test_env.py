@@ -6,15 +6,6 @@ from core.env import *
 from core.dataset import Essay
 
 
-class TestPstringsToTokens:
-    def test_valid(self, prediction):
-        length = 50
-        tokens = to_tokens([prediction], length)
-        print(tokens)
-        assert(len(tokens) == length)
-        assert(set(tokens) == set((-1, 0, 1)))
-
-
 class TestSegmentationEnv:
     def test_init(self, seg_tokenizer, dataset, seg_args):
         env = SegmentationEnv(dataset, seg_tokenizer, None, seg_args)

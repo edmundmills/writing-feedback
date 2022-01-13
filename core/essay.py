@@ -2,13 +2,15 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from core.constants import essay_dir, argument_names
-from utils.grading import get_labels, ismatch, prediction_string
+from core.constants import essay_dir, argument_names, argument_types
+from utils.grading import get_labels, ismatch, prediction_string, start_num, end_num
 
 class Prediction:
     def __init__(self, start, stop, label, essay_id) -> None:
         self.start = start
         self.stop = stop
+        if stop < start:
+            raise ValueError('Prediction start cant be before prediction stop')
         self.label = label
         self.essay_id = essay_id
 
@@ -28,6 +30,9 @@ class Prediction:
         return {'id': self.essay_id,
                 'class': argument_names[self.label],
                 'predictionstring': self.pstring}
+
+    def __repr__(self):
+        return str(self.formatted())
 
 class Essay:
     def __init__(self, essay_id, text, labels) -> None:
@@ -73,6 +78,13 @@ class Essay:
     @property
     def pstrings(self) -> List[str]:
         return self.labels.loc[:,'predictionstring'].tolist()
+
+    @property
+    def correct_predictions(self) -> List[Prediction]:
+        preds = [Prediction(start_num(pstring), end_num(pstring),
+                            argument_types[d_type], self.essay_id)
+                 for _text, d_type, pstring in self.all_arguments()]
+        return preds            
 
     def all_arguments(self) -> List[Tuple]:
         arguments = []

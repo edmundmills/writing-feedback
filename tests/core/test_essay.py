@@ -1,9 +1,15 @@
+from core.essay import Prediction
+
+
 class TestPrediction:
     def test_formatted(self, prediction):
         formatted = prediction.formatted()
         assert(formatted['id'] == prediction.essay_id)
         assert(formatted['predictionstring'] == prediction.pstring)
         assert(formatted['class'] == prediction.argument_name)
+
+    def test_word_idxs(self, prediction):
+        assert(len(prediction.word_idxs) == (prediction.stop - prediction.start + 1))
 
 class TestEssay:
     def test_polarity_pairs(self, essay):
@@ -49,6 +55,16 @@ class TestEssay:
     def test_random_pstrings_with_max(self, essay):
         pstrings = essay.random_pstrings(max_d_elems=2)
         assert(len(pstrings) <= 2)
+       
+
+    def test_correct_predictions(self, essay):
+        preds = essay.correct_predictions
+        assert(isinstance(preds, list))
+        assert(isinstance(preds[0], Prediction))
+        assert(len(preds) == len(essay.all_arguments()))
+        assert(preds[0].start == 0)
+        assert(preds[-1].stop == len(essay.words) - 1)
+
 
 class TestGrade:
     def test_single_prediction(self, essay):

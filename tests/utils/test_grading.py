@@ -4,6 +4,15 @@ import torch
 from core.constants import argument_names, argument_types
 from utils.grading import *
 
+class TestPstringsToTokens:
+    def test_valid(self, prediction):
+        length = 50
+        tokens = to_tokens([prediction], length)
+        print(tokens)
+        assert(len(tokens) == length)
+        assert(set(tokens) == set((-1, 0, 1)))
+
+
 class TestPredictionString:
     def test_normal(self):
         predictionstring = prediction_string(0, 5)
