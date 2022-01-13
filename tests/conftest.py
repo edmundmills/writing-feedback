@@ -24,6 +24,9 @@ class TestEncoder:
         return torch.rand(len(sentences), encoded_sentence_length)
 
 class TestSegmentationTokenizer:
+    def __init__(self) -> None:
+        self.max_tokens = encoded_essay_length
+        
     def encode(self, text:str):
         encoded_text = torch.LongTensor(list(range(encoded_essay_length))).unsqueeze(0)
         attention_mask = torch.ones(1, encoded_essay_length, dtype=torch.uint8)

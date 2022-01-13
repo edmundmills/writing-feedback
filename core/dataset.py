@@ -2,6 +2,7 @@ from csv import DictReader
 import random
 from typing import List, Tuple
 
+import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import TensorDataset
@@ -9,7 +10,7 @@ import tqdm
 
 from core.constants import data_path, essay_dir, label_file, argument_names, argument_types
 from core.essay import Essay
-from utils.grading import get_discourse_elements, get_label, get_labels
+from utils.grading import get_discourse_elements, get_label, get_labels, to_tokens
  
 class ClassificationDataset:
     def __init__(self, text:List[str], labels:torch.Tensor):
@@ -149,6 +150,25 @@ class EssayDataset:
         labels = torch.LongTensor(labels)
         print(f'Argument Classification Dataset Created with {len(text)} samples.')
         return ClassificationDataset(text, labels)
+
+    def make_ner_dataset(self, tokenizer) -> TensorDataset:
+        print('Making NER Dataset')
+        input_ids = []
+        attention_masks = []
+        labels = []
+        for essay in tqdm.tqdm(self):
+            encoded = tokenizer.encode(essay.text)
+            input_ids.append(encoded['input_ids'])
+            attention_masks.append(encoded['attention_mask'])
+            labels.append(to_tokens(essay.correct_predictions, tokenizer.max_tokens))
+        input_ids = torch.cat(input_ids, dim=0)
+        attention_masks = torch.cat(attention_masks, dim=0)
+        labels = np.array(labels)
+        labels = torch.LongTensor(labels)
+        dataset = TensorDataset(input_ids, attention_masks, labels)
+        print('NER Dataset Created')
+        return dataset
+            
 
     def make_essay_feedback_dataset(self, encoder, randomize_segments=False) -> TensorDataset:
         print('Making Essay Feedback Dataset')
