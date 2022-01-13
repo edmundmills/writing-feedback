@@ -1,4 +1,4 @@
-name: essay_feedback
+name: classification
 
 epochs: 200
 lr: 1e-3

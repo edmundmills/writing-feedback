@@ -9,7 +9,7 @@ import torch
 from core.dataset import EssayDataset
 from core.env import AssigmentEnv, SegmentationEnv
 from core.essay import Prediction
-from core.models.essay_feedback import EssayModel
+from core.models.classification import EssayModel
 
 random.seed(0)
 np.random.seed(0)
@@ -65,12 +65,12 @@ def d_elem_encoder():
 
 @pytest.fixture
 def essay_feedback_args():
-    args = OmegaConf.load('config/essay_feedback.yaml')
+    args = OmegaConf.load('config/classification.yaml')
     return args
 
 @pytest.fixture
 def essay_model():
-    args = OmegaConf.load('config/essay_feedback.yaml')
+    args = OmegaConf.load('config/classification.yaml')
     args.num_encoder_layers = 1
     return EssayModel(args, d_elem_encoder=TestEncoder())
 

@@ -5,14 +5,14 @@ import random
 import transformers
 import torch
 
-from core.models.essay_feedback import EssayModel
+from core.models.classification import EssayModel
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun
 
 if __name__ == '__main__':
     args = parse_args()
-    args = get_config('essay_feedback', args)
+    args = get_config('classification', args)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()

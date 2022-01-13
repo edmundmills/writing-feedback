@@ -1,4 +1,4 @@
-from core.models.essay_feedback import *
+from core.models.classification import *
 
 def test_positional_encoding():
     pos_encoder = PositionalEncoder(32)
