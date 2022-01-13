@@ -78,7 +78,7 @@ class SegmentationEnv(gym.Env):
         pred_end = min(self.word_idx + action - 1, len(self.essay.words) - 1)
         self.predictions.append(Prediction(self.word_idx, pred_end, -1, self.essay.essay_id))
         self.word_idx += action
-        if self.word_idx + 1 >= len(self.essay.words):
+        if self.word_idx + 1 >= min(len(self.essay.words), self.max_words):
             self.done = True
         reward = self.current_state_value() - init_value
         info = {}
