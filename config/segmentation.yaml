@@ -3,6 +3,7 @@ name: segmentation
 print_interval: 100
 eval_interval: 500
 
+train_steps: 1e6
 
 essay_max_tokens: 1024
 action_space_dim: 256

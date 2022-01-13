@@ -18,7 +18,7 @@ def to_tokens(predictions, num_words):
         tokens.extend([0] * (len(pred.word_idxs) - 1))
     while len(tokens) < num_words:
         tokens.append(-1)
-    return np.array(tokens)
+    return np.array(tokens, dtype=np.int8)
 
 
 class SegmentationEnv(gym.Env):
@@ -34,8 +34,8 @@ class SegmentationEnv(gym.Env):
         self.max_words = args.essay_max_tokens
         self.action_space = spaces.Discrete(args.action_space_dim)
         self.observation_space = spaces.Dict({
-            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words)),
-            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,))
+            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
+            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
         })
 
     @property

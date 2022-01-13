@@ -10,7 +10,6 @@ from core.dataset import EssayDataset
 from core.env import AssigmentEnv, SegmentationEnv
 from core.essay import Prediction
 from core.models.essay_feedback import EssayModel
-from core.models.segmentation_agent import SegmentationAgent
 
 random.seed(0)
 np.random.seed(0)
@@ -27,7 +26,7 @@ class TestEncoder:
 class TestSegmentationTokenizer:
     def encode(self, text:str):
         encoded_text = torch.LongTensor(list(range(encoded_essay_length))).unsqueeze(0)
-        attention_mask = torch.ones(1, encoded_essay_length)
+        attention_mask = torch.ones(1, encoded_essay_length, dtype=torch.uint8)
         return {'input_ids': encoded_text, 'attention_mask': attention_mask}
 
 @pytest.fixture
@@ -76,11 +75,6 @@ def essay_model():
 def seg_args():
     args = OmegaConf.load('config/segmentation.yaml')
     return args
-
-@pytest.fixture
-def seg_agent():
-    args = OmegaConf.load('config/segmentation.yaml')
-    return SegmentationAgent(args)
 
 @pytest.fixture
 def seg_env():

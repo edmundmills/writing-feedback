@@ -16,8 +16,8 @@ class TestPstringsToTokens:
 
 
 class TestSegmentationEnv:
-    def test_init(self, seg_agent, dataset, seg_args):
-        env = SegmentationEnv(dataset, seg_agent, None, seg_args)
+    def test_init(self, seg_tokenizer, dataset, seg_args):
+        env = SegmentationEnv(dataset, seg_tokenizer, None, seg_args)
         assert(isinstance(env, SegmentationEnv))
         check_env(env)
 

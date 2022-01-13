@@ -6,7 +6,7 @@ import transformers
 import torch
 
 from core.env import SegmentationEnv
-from core.models.segmentation_agent import SegmentationAgent
+from core.models.segmentation import SegmentationTokenizer, make_agent, Logging
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun
@@ -27,16 +27,15 @@ if __name__ == '__main__':
         dataset = EssayDataset(n_essays=200)
         args.print_interval = 10
         args.eval_interval = 50
-        args.batches_per_eval = 4
-        args.epochs = max(args.epochs, 20)
+        args.train_steps = 100
     else:
         dataset = EssayDataset()
 
     train, val = dataset.split()
 
-    agent = SegmentationAgent(args)
-    env = SegmentationEnv(train, agent, None)
-
+    tokenizer = SegmentationTokenizer(args)
+    env = SegmentationEnv(train, tokenizer, None, args)
+    agent = make_agent(args, env)
+ 
     with WandBRun(args):
-        state = env.reset()
-        act = agent.act(state)
+        agent.learn(total_timesteps=args.train_steps, callback=Logging(args))
