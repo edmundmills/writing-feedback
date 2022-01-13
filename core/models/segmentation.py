@@ -6,17 +6,15 @@ import torch
 import torch.nn as nn
 from transformers import LongformerTokenizer, LongformerModel
 
+from utils.networks import MLP
+
 
 class SegmentationModel(nn.Module):
     def __init__(self, args) -> None:
         super().__init__()
         self.transformer = LongformerModel.from_pretrained('allenai/longformer-base-4096')
-        self.classifier = nn.Sequential(
-            nn.Linear(768, 512),
-            nn.Linear(512, 512),
-            nn.Linear(512, 512),
-            nn.Linear(512, 2)
-        )
+        self.classifier = MLP(768, 2, args.linear_layers, args.linear_layer_size, dropout=0.1)
+        self.args = args
 
     def forward(self, essay_tokens):
         essay_tokens = essay_tokens.long()

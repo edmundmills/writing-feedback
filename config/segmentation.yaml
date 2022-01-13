@@ -5,6 +5,9 @@ eval_interval: 500
 
 train_steps: 1e6
 
+linear_layers: 3
+linear_layer_size: 512
+
 essay_max_tokens: 1024
 action_space_dim: 256
 
