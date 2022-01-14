@@ -218,6 +218,8 @@ def make_agent(args, env):
         net_arch=[dict(pi=[256], vf=[256])]
     )
 
+    log_dir = wandb.run.name if args.wandb else 'test'
     return PPO("MultiInputPolicy", env,
                policy_kwargs=policy_kwargs,
-               verbose=args.sb3_verbosity)
+               verbose=args.sb3_verbosity,
+               tensorboard_log=f"./log/{log_dir}/")

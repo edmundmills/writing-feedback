@@ -34,13 +34,13 @@ if __name__ == '__main__':
 
     tokenizer = SegmentationTokenizer(args.ner)
     env = SegmentationEnv.make_vec(train, tokenizer, None, args)
-    agent = make_agent(args, env)
  
-    if args.wandb:
-        callback = WandbCallback()
-    else:
-        callback = None
-
-
     with WandBRun(args):
+        agent = make_agent(args, env)
+        if args.wandb:
+            callback = WandbCallback(
+                gradient_save_freq=100,
+                verbose=2)
+        else:
+            callback = None
         agent.learn(total_timesteps=args.train_steps, callback=callback)
