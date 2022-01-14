@@ -1,0 +1,5 @@
+name: essay_feedback
+
+train_essay_feature_extractor: false
+train_classifier: false
+train_segmentation_agent: false
