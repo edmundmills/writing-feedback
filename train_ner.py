@@ -12,7 +12,7 @@ from utils.config import parse_args, get_config, WandBRun
 
 if __name__ == '__main__':
     args = parse_args()
-    args = get_config('segmentation', args)
+    args = get_config('ner', args)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
@@ -27,7 +27,7 @@ if __name__ == '__main__':
         args.print_interval = 10
         args.eval_interval = 10
         args.eval_samples = 10
-        args.ner_epochs = max(args.ner_epochs, 20)
+        args.epochs = 3
     else:
         dataset = EssayDataset()
 

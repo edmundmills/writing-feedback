@@ -10,6 +10,7 @@ from core.dataset import EssayDataset
 from core.env import AssigmentEnv, SegmentationEnv
 from core.essay import Prediction
 from core.models.classification import EssayModel
+from utils.config import get_config
 
 random.seed(0)
 np.random.seed(0)
@@ -95,14 +96,14 @@ def essay_model():
 
 @pytest.fixture
 def seg_args():
-    args = OmegaConf.load('config/segmentation.yaml')
+    args = get_config('segmentation')
     return args
 
 @pytest.fixture
 def seg_env():
     dataset = EssayDataset(n_essays=10)
     encoder = TestSegmentationTokenizer()
-    args = OmegaConf.load('config/segmentation.yaml') 
+    args = get_config('segmentation') 
     env = SegmentationEnv(dataset, encoder, None, args)
     return env
 

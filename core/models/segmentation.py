@@ -70,17 +70,17 @@ class SegmentationModel(Model):
 
     def train_ner(self, train_dataset, val_dataset, args):
         dataloader = DataLoader(train_dataset,
-                                batch_size=args.ner_batch_size,
+                                batch_size=args.batch_size,
                                 num_workers=4,
                                 sampler=RandomSampler(train_dataset))
-        optimizer = torch.optim.AdamW(self.parameters(), lr=args.ner_lr)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=args.lr)
 
         with Mode(self, 'train'):
             step = 0
             running_loss = deque(maxlen=args.print_interval)
             timestamps = deque(maxlen=args.print_interval)
 
-            for epoch in range(1, args.ner_epochs + 1):
+            for epoch in range(1, args.epochs + 1):
                 print(f'Starting Epoch {epoch}')
                 for input_ids, attention_masks, labels in dataloader:
                     step += 1
@@ -95,8 +95,8 @@ class SegmentationModel(Model):
                     loss = F.cross_entropy(logits, labels)
 
                      
-                    if step % args.ner_grad_accumulation == 0:
-                        grad_steps = step // args.ner_grad_accumulation
+                    if step % args.grad_accumulation == 0:
+                        grad_steps = step // args.grad_accumulation
                         optimizer.zero_grad()
                         loss.backward()
                         torch.nn.utils.clip_grad_norm_(self.parameters(), args.max_grad_norm)
@@ -125,7 +125,7 @@ class SegmentationModel(Model):
         n_samples = n_samples or len(dataset)
         with Mode(self, 'eval'):
             dataloader = DataLoader(dataset,
-                                    batch_size=args.ner_batch_size,
+                                    batch_size=args.batch_size,
                                     num_workers=4,
                                     sampler=RandomSampler(dataset))
             losses = []
@@ -151,7 +151,7 @@ class SegmentationModel(Model):
                 labels.extend(label)
                 sample_p_pos = list(probs[:,1])
                 p_pos.extend(sample_p_pos)
-                if step * args.ner_batch_size >= n_samples:
+                if step * args.batch_size >= n_samples:
                     break
             avg_loss = sum(losses) / len(losses)
             avg_p_pos = sum(p_pos) / len(p_pos)
@@ -178,14 +178,14 @@ class SegmentationModel(Model):
 
 class EssayFeatures(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
-        feature_dim = args.essay_max_tokens * 2
+        feature_dim = args.ner.essay_max_tokens * 2
         super().__init__(observation_space, features_dim=feature_dim)
         device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 
         self.extractors = {}
         for key, _subspace in observation_space.spaces.items():
             if key == 'essay_tokens':
-                self.extractors[key] = SegmentationModel(args, feature_extractor=True).to(device)
+                self.extractors[key] = SegmentationModel(args.ner, feature_extractor=True).to(device)
             elif key == 'pred_tokens':
                 self.extractors[key] = nn.Flatten()
 

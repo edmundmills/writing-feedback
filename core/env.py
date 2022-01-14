@@ -21,8 +21,8 @@ class SegmentationEnv(gym.Env):
         self.encoded_essay_text = None
         self.word_idx = None
         self.done = None
-        self.max_words = args.essay_max_tokens
-        self.action_space = spaces.Discrete(args.rl_action_space_dim)
+        self.max_words = args.ner.essay_max_tokens
+        self.action_space = spaces.Discrete(args.action_space_dim)
         self.observation_space = spaces.Dict({
             'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
             'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)

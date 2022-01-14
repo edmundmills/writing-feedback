@@ -1,24 +1,14 @@
+defaults:
+ - ner: ../ner
+
 name: segmentation
 
-print_interval: 10
-eval_interval: 50
-eval_samples: 512
 
-essay_max_tokens: 1024
+train_steps: 1e6
+envs: 8
+action_space_dim: 256
 
-linear_layers: 3
-linear_layer_size: 512
-
-ner_lr: 2e-5
-ner_epochs: 10
-ner_batch_size: 1
-ner_grad_accumulation: 32
-max_grad_norm: 10
-
-rl_train_steps: 1e6
-rl_envs: 8
-rl_action_space_dim: 256
-
+save_model: True
 debug: False
 wandb: True
 seed: 0

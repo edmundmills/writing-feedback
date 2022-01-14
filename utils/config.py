@@ -11,9 +11,10 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def get_config(filename, args):
+def get_config(filename, args=None):
+    overrides = args.overrides if args is not None else []
     with initialize(config_path='../config/'):
-        cfg = compose(f'{filename}.yaml', overrides=args.overrides)
+        cfg = compose(f'{filename}.yaml', overrides=overrides)
     print(OmegaConf.to_yaml(cfg))        
     return cfg
 
