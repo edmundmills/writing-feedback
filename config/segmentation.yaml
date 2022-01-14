@@ -12,7 +12,7 @@ action_space_dim: 256
 
 save_model: True
 sync_tensorboard: True
-sb3_verbosity: 2
+sb3_verbosity: 1
 debug: False
 wandb: True
 seed: 0

@@ -3,7 +3,7 @@ from functools import partial
 import gym
 from gym import spaces
 import numpy as np
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 import torch
 
 from core.constants import argument_names
@@ -39,11 +39,13 @@ class SegmentationEnv(gym.Env):
         def make_env(dataset):
             def _init():
                 env = cls(dataset, word_tokenizer, argument_classifier, args)
+
                 return env
             return _init
-        env = SubprocVecEnv([make_env(ds) for ds in datasets])
+        venv = SubprocVecEnv([make_env(ds) for ds in datasets])
+        venv = VecMonitor(venv, filename='./log/test')
         print('Vectorized env created')
-        return env
+        return venv
 
     @property
     def prediction_tokens(self):
