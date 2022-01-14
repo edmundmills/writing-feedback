@@ -95,7 +95,7 @@ class SegmentationModel(Model):
                         grad_steps = step // args.ner_grad_accumulation
                         optimizer.zero_grad()
                         loss.backward()
-                        torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+                        torch.nn.utils.clip_grad_norm_(self.parameters(), args.max_grad_norm)
                         optimizer.step()
 
                         loss = loss.item()
