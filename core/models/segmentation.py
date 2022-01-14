@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, RandomSampler
-from transformers import LongformerTokenizer, LongformerModel
+from transformers import LongformerTokenizerFast, LongformerModel
 import wandb
 
 from utils.networks import MLP, Model, Mode
@@ -19,15 +19,18 @@ class SegmentationTokenizer:
     def __init__(self, args):
         super().__init__()
         self.max_tokens = args.essay_max_tokens
-        self.tokenizer = LongformerTokenizer.from_pretrained('allenai/longformer-base-4096')
+        self.tokenizer = LongformerTokenizerFast.from_pretrained('allenai/longformer-base-4096',
+                                                                 add_prefix_space=True)
 
     def encode(self,text:str):
-        tokenized = self.tokenizer.encode_plus(text,
+        tokenized = self.tokenizer.encode_plus(text.split(),
                                              max_length=self.max_tokens,
                                              padding='max_length',
                                              truncation=True,
                                              return_tensors='pt',
-                                             return_attention_mask=True)
+                                             return_attention_mask=True,
+                                             is_split_into_words=True,
+                                             )
         return tokenized
 
 

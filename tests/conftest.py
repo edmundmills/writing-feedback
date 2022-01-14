@@ -23,6 +23,23 @@ class TestEncoder:
     def encode(self, sentences: List[str]):
         return torch.rand(len(sentences), encoded_sentence_length)
 
+class EncodedEssay:
+    def __init__(self, input_ids, attention_mask) -> None:
+        self.input_ids = input_ids
+        self.attention_mask = attention_mask
+
+    def __getitem__(self, attribute):
+        if attribute == 'input_ids':
+            return self.input_ids
+        elif attribute == 'attention_mask':
+            return self.attention_mask
+        else:
+            raise KeyError()
+    
+    def word_ids(self):
+        return list(range(len(self.input_ids)))
+
+
 class TestSegmentationTokenizer:
     def __init__(self) -> None:
         self.max_tokens = encoded_essay_length
@@ -30,7 +47,9 @@ class TestSegmentationTokenizer:
     def encode(self, text:str):
         encoded_text = torch.LongTensor(list(range(encoded_essay_length))).unsqueeze(0)
         attention_mask = torch.ones(1, encoded_essay_length, dtype=torch.uint8)
-        return {'input_ids': encoded_text, 'attention_mask': attention_mask}
+        return EncodedEssay(encoded_text, attention_mask)
+
+
 
 @pytest.fixture
 def fix_seed():

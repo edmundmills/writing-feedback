@@ -161,7 +161,14 @@ class EssayDataset:
             encoded = tokenizer.encode(essay.text)
             input_ids.append(encoded['input_ids'])
             attention_masks.append(encoded['attention_mask'])
+            word_ids = encoded.word_ids()
             label_tokens = to_tokens(essay.correct_predictions, tokenizer.max_tokens)
+            def get_label(word_idx, label_tokens):
+                if word_idx is None:
+                    return -1
+                else:
+                    return label_tokens[word_idx]
+            label_tokens = [get_label(word_idx, label_tokens) for word_idx in word_ids]
             labels.append(torch.LongTensor(label_tokens))
         input_ids = torch.cat(input_ids, dim=0)
         attention_masks = torch.cat(attention_masks, dim=0)
