@@ -188,7 +188,11 @@ class EssayFeatures(BaseFeaturesExtractor):
         self.extractors = {}
         for key, _subspace in observation_space.spaces.items():
             if key == 'essay_tokens':
-                self.extractors[key] = SegmentationModel(args.ner, feature_extractor=True).to(device)
+                ner_model = SegmentationModel(args.ner, feature_extractor=True)
+                if not args.train_ner_model:
+                    ner_model.load(args.ner_model_name)
+                ner_model = ner_model.to(device)
+                self.extractors[key] = ner_model
             elif key == 'pred_tokens':
                 self.extractors[key] = nn.Flatten()
 
@@ -211,4 +215,6 @@ def make_agent(args, env):
         net_arch=[dict(pi=[256], vf=[256])]
     )
 
-    return PPO("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
+    return PPO("MultiInputPolicy", env,
+               policy_kwargs=policy_kwargs,
+               verbose=args.sb3_verbosity)

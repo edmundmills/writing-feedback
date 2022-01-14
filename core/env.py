@@ -3,6 +3,7 @@ from functools import partial
 import gym
 from gym import spaces
 import numpy as np
+from stable_baselines3.common.vec_env import SubprocVecEnv
 import torch
 
 from core.constants import argument_names
@@ -10,6 +11,7 @@ from core.dataset import EssayDataset
 from core.essay import Prediction
 from utils.text import to_sentences
 from utils.grading import to_tokens
+
 
 class SegmentationEnv(gym.Env):
     def __init__(self, essay_dataset, word_tokenizer, argument_classifier, args) -> None:
@@ -27,6 +29,21 @@ class SegmentationEnv(gym.Env):
             'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
             'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
         })
+
+    @classmethod
+    def make_vec(cls, essay_dataset, word_tokenizer, argument_classifier, args):
+        print('Making Vectorized Environment')
+        dataset_fracs = [1 / args.envs] * args.envs
+        print(dataset_fracs)
+        datasets = essay_dataset.split(dataset_fracs)
+        def make_env(dataset):
+            def _init():
+                env = cls(dataset, word_tokenizer, argument_classifier, args)
+                return env
+            return _init
+        env = SubprocVecEnv([make_env(ds) for ds in datasets])
+        print('Vectorized env created')
+        return env
 
     @property
     def prediction_tokens(self):
@@ -52,6 +69,8 @@ class SegmentationEnv(gym.Env):
         return self.essay.grade(predictions)['f_score']
 
     def reset(self):
+        if self.essay:
+            print(self.current_state_value())
         self.essay = self.dataset.random_essay()[0]
         self.predictions = []
         self.word_idx = 0
@@ -64,9 +83,14 @@ class SegmentationEnv(gym.Env):
         return self.state
 
     def step(self, action:int):
+        action = action + 2 # Segments must be at least 2 words long
         init_value = self.current_state_value()
         pred_end = min(self.word_idx + action - 1, len(self.essay.words) - 1)
-        self.predictions.append(Prediction(self.word_idx, pred_end, -1, self.essay.essay_id))
+        try:
+            self.predictions.append(Prediction(self.word_idx, pred_end, -1, self.essay.essay_id))
+        except ValueError:
+            print(self.word_idx, action, pred_end, len(self.essay.words))
+            raise RuntimeError
         self.word_idx += action
         if self.word_idx + 1 >= min(len(self.essay.words), self.max_words):
             self.done = True

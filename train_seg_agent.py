@@ -26,17 +26,21 @@ if __name__ == '__main__':
 
     if args.debug:
         dataset = EssayDataset(n_essays=200)
-        args.print_interval = 10
-        args.eval_interval = 50
         args.train_steps = 100
     else:
         dataset = EssayDataset()
 
     train, val = dataset.split()
 
-    tokenizer = SegmentationTokenizer(args)
-    env = SegmentationEnv(train, tokenizer, None, args)
+    tokenizer = SegmentationTokenizer(args.ner)
+    env = SegmentationEnv.make_vec(train, tokenizer, None, args)
     agent = make_agent(args, env)
  
+    if args.wandb:
+        callback = WandbCallback()
+    else:
+        callback = None
+
+
     with WandBRun(args):
-        agent.learn(total_timesteps=args.rl_train_steps)
+        agent.learn(total_timesteps=args.train_steps, callback=callback)

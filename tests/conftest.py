@@ -97,6 +97,7 @@ def essay_model():
 @pytest.fixture
 def seg_args():
     args = get_config('segmentation')
+    args.wandb = False
     return args
 
 @pytest.fixture

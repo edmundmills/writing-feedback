@@ -43,7 +43,7 @@ class TestEssayDataset:
         assert(len(class_dataset) == class_dataset.labels.size()[0])
         assert(torch.sum(torch.eq(class_dataset.labels, 1)) == torch.sum(torch.eq(class_dataset.labels, 2)))
 
-    def test_split(self, dataset):
+    def test_split_default(self, dataset):
         train, val = dataset.split()
         assert(isinstance(train, EssayDataset))
         assert(isinstance(val, EssayDataset))
@@ -51,6 +51,10 @@ class TestEssayDataset:
         assert(len(val) == 1)
         assert(set(train.df.loc[:,'id'].unique()) == set(train.essay_ids))
         assert(set(val.df.loc[:,'id'].unique()) == set(val.essay_ids))
+
+    def test_split(self, dataset):
+        datasets = dataset.split([.25, .25, .25, .25])
+        assert(len(datasets) == 4)
 
     def test_make_polarity_dataset(self, dataset):
         polarity_dataset = dataset.make_polarity_dataset()

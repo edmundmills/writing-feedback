@@ -1,9 +1,11 @@
 import pytest
 
+from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_checker import check_env
 
 from core.env import *
 from core.dataset import Essay
+from core.models.segmentation import make_agent
 
 
 class TestSegmentationEnv:
@@ -24,6 +26,13 @@ class TestSegmentationEnv:
         assert(isinstance(reward, float))
         assert(not done)
 
+    def test_make_vec(self, seg_args, seg_tokenizer, dataset):
+        seg_args.envs = 4
+        env = SegmentationEnv.make_vec(dataset, seg_tokenizer, None, seg_args)
+        assert(isinstance(env, SubprocVecEnv))
+        assert(len(env.get_attr('done')) == seg_args.envs)
+        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
+        make_agent(seg_args, env)
 
 class TestAssignmentEnv:
     def test_reset(self, env):

@@ -107,15 +107,24 @@ class EssayDataset:
                 spans.append(span)
         return spans
 
-    def split(self, fraction=0.9):
+    def split(self, sections=[0.9, 0.1]):
         print('Splitting Essay Dataset')
+        if len(sections) > len(self):
+            raise ValueError('Cant split dataset into more sections than there are essays')
         essays = self.essay_ids.copy()
         random.shuffle(essays)
-        n_train = int(fraction * len(self))
-        train_essays = self.essay_ids[:n_train]
-        val_essays = self.essay_ids[n_train:]
-        print(f'{len(train_essays)} Train Essays and {len(val_essays)} Validation Essays')
-        return EssayDataset(essay_ids=train_essays, full_dataset=self), EssayDataset(essay_ids=val_essays, full_dataset=self)
+        datasets = []
+        ds_sizes = [int(fraction * len(self)) for fraction in sections]
+        start_idx = 0
+        for idx, size in enumerate(ds_sizes):
+            end_idx = start_idx + size
+            if idx == len(ds_sizes) - 1:
+                end_idx = len(self)
+            ds_essays = self.essay_ids[start_idx:end_idx]
+            datasets.append(EssayDataset(essay_ids=ds_essays, full_dataset=self))
+            start_idx = end_idx
+        print(f'Dataset split into datasets with sizes {[len(ds) for ds in datasets]}')
+        return datasets
 
     def make_polarity_dataset(self) -> ComparisonDataset:
         text_pairs = []

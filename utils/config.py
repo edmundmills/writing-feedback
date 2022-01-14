@@ -29,11 +29,14 @@ class WandBRun:
         project = self.args.name
         if self.args.debug:
             project += '-debug'
+        tensorboard = OmegaConf.select(self.args, "sync_tensorboard",
+                                       default=False)
         if self.args.wandb:
             wandb.init(
                 entity='writing-feedback',
                 project=project,
                 notes="",
+                sync_tensorboard=tensorboard,
                 config=flatten_args(self.args),
             )
 
