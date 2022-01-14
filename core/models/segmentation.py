@@ -120,6 +120,9 @@ class SegmentationModel(Model):
 
                         if args.wandb:
                             wandb.log(metrics, step=grad_steps)
+        if args.wandb and args.save_model and not args.debug:
+            self.save()
+
 
     def evaluate(self, dataset, args, n_samples=None):
         n_samples = n_samples or len(dataset)
