@@ -35,8 +35,9 @@ class SegmentationTokenizer:
 
 
 class SegmentationModel(Model):
-    def __init__(self, args) -> None:
+    def __init__(self, args, feature_extractor=False) -> None:
         super().__init__()
+        self.feature_extractor = feature_extractor
         print('Loading SegmentationModel')
         self.transformer = LongformerModel.from_pretrained(
             'allenai/longformer-base-4096').to(self.device)
@@ -54,12 +55,15 @@ class SegmentationModel(Model):
         attention_mask = attention_mask.squeeze(-2)
         return input_ids, attention_mask
 
-    def forward(self, input_ids, attention_mask=None, single_dim_output=True):
-        if attention_mask is None:
+    def forward(self, input_ids, attention_mask=None):
+        if self.feature_extractor:
             input_ids, attention_mask = self.split_essay_tokens(input_ids)
-        encoded = self.transformer(input_ids, attention_mask=attention_mask)
+            with torch.no_grad():
+                encoded = self.transformer(input_ids, attention_mask=attention_mask)
+        else:
+            encoded = self.transformer(input_ids, attention_mask=attention_mask)
         output = self.classifier(encoded.last_hidden_state)
-        if single_dim_output:
+        if self.feature_extractor:
             output, _ = torch.chunk(output, 2, dim=-1)
             output = output.flatten(1)
         return output
@@ -84,7 +88,7 @@ class SegmentationModel(Model):
                     attention_masks = attention_masks.to(self.device)
                     labels = labels.to(self.device).squeeze()
 
-                    logits = self(input_ids, attention_masks, single_dim_output=False).squeeze()                    
+                    logits = self(input_ids, attention_masks).squeeze()                    
                     msk = (labels != -1)
                     logits = logits[msk]
                     labels = labels[msk]
@@ -133,7 +137,7 @@ class SegmentationModel(Model):
                 input_ids = input_ids.to(self.device)
                 attention_mask = attention_mask.to(self.device)
                 with torch.no_grad():
-                    output = self(input_ids, attention_mask, single_dim_output=False).squeeze()
+                    output = self(input_ids, attention_mask).squeeze()
                     label = label.squeeze()
                     msk = (label != -1)
                     output = output[msk]
@@ -181,7 +185,7 @@ class EssayFeatures(BaseFeaturesExtractor):
         self.extractors = {}
         for key, _subspace in observation_space.spaces.items():
             if key == 'essay_tokens':
-                self.extractors[key] = SegmentationModel(args).to(device)
+                self.extractors[key] = SegmentationModel(args, feature_extractor=True).to(device)
             elif key == 'pred_tokens':
                 self.extractors[key] = nn.Flatten()
 

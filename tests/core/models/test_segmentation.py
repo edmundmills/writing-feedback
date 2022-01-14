@@ -5,7 +5,7 @@ from core.models.segmentation import *
 
 class TestSegmentationModel:
     def test_forward_as_feature_extractor(self, encoded_essay, seg_args):
-        model = SegmentationModel(seg_args)
+        model = SegmentationModel(seg_args, feature_extractor=True)
         encoded_text = encoded_essay['input_ids']
         attention_mask = encoded_essay['attention_mask']
         x = torch.stack((encoded_text, attention_mask), dim=1).to(model.device)
@@ -16,7 +16,8 @@ class TestSegmentationModel:
         model = SegmentationModel(seg_args)
         encoded_text = encoded_essay['input_ids']
         attention_mask = encoded_essay['attention_mask']
-        output = model(encoded_text.to(model.device), attention_mask.to(model.device), single_dim_output=False)
+        output = model(encoded_text.to(model.device),
+                       attention_mask.to(model.device))
         assert(output.size() == (1, seg_args.essay_max_tokens, 2))
 
 class TestEncode:
