@@ -59,13 +59,16 @@ class SegmentationModel(Model):
         if self.feature_extractor:
             input_ids, attention_mask = self.split_essay_tokens(input_ids)
             with torch.no_grad():
+                self.eval()
                 encoded = self.transformer(input_ids, attention_mask=attention_mask)
+                output = self.classifier(encoded.last_hidden_state)
+            output = F.softmax(output, dim=-1)
+            _, output = torch.chunk(output, 2, dim=-1)
+            output = output.squeeze(-1)
+            output = output * attention_mask - (1 - attention_mask)
         else:
             encoded = self.transformer(input_ids, attention_mask=attention_mask)
-        output = self.classifier(encoded.last_hidden_state)
-        if self.feature_extractor:
-            output, _ = torch.chunk(output, 2, dim=-1)
-            output = output.flatten(1)
+            output = self.classifier(encoded.last_hidden_state)
         return output
 
     def train_ner(self, train_dataset, val_dataset, args):
