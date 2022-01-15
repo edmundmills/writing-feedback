@@ -18,7 +18,4 @@ intermediate_layer_size: 64
 dropout: 0.2
 
 use_correct_segments: True
-debug: False
-wandb: True
 save_model: True
-seed: 0

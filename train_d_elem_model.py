@@ -5,7 +5,7 @@ import random
 import transformers
 import torch
 
-from core.models.argument_encoder import ArgumentModel
+from core.d_elems import DElemModel
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     polarity_train_dataset = train.make_polarity_dataset()
     polarity_val_dataset = val.make_polarity_dataset()
 
-    arg_model = ArgumentModel()
+    arg_model = DElemModel()
     
     with WandBRun(args):
         arg_model.train(class_train_dataset, class_val_dataset,

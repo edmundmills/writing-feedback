@@ -1,12 +1,8 @@
 from collections import deque
 import time
 
-import gym
 import numpy as np
-from stable_baselines3 import PPO
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import LongformerTokenizerFast, LongformerModel
@@ -15,7 +11,7 @@ import wandb
 from utils.networks import MLP, Model, Mode
 
 
-class SegmentationTokenizer:
+class NERTokenizer:
     def __init__(self, args):
         super().__init__()
         self.max_tokens = args.essay_max_tokens
@@ -34,11 +30,11 @@ class SegmentationTokenizer:
         return tokenized
 
 
-class SegmentationModel(Model):
+class NERModel(Model):
     def __init__(self, args, feature_extractor=False) -> None:
         super().__init__()
         self.feature_extractor = feature_extractor
-        print('Loading SegmentationModel')
+        print('Loading NERModel')
         self.transformer = LongformerModel.from_pretrained(
             'allenai/longformer-base-4096').to(self.device)
         self.classifier = MLP(768,
@@ -46,7 +42,7 @@ class SegmentationModel(Model):
                               args.linear_layers,
                               args.linear_layer_size,
                               dropout=0.1).to(self.device)
-        print('SegmentationModel Loaded')
+        print('NERModel Loaded')
 
     def split_essay_tokens(self, essay_tokens):
         essay_tokens = essay_tokens.long()
@@ -182,44 +178,3 @@ class SegmentationModel(Model):
 
 
 
-class EssayFeatures(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
-        feature_dim = args.ner.essay_max_tokens * 2
-        super().__init__(observation_space, features_dim=feature_dim)
-        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-
-        self.extractors = {}
-        for key, _subspace in observation_space.spaces.items():
-            if key == 'essay_tokens':
-                ner_model = SegmentationModel(args.ner, feature_extractor=True)
-                if not args.train_ner_model:
-                    ner_model.load(args.ner_model_name)
-                ner_model = ner_model.to(device)
-                self.extractors[key] = ner_model
-            elif key == 'pred_tokens':
-                self.extractors[key] = nn.Flatten()
-
-
-    def forward(self, observations) -> torch.Tensor:
-        encoded_tensor_list = []
-        for key, extractor in self.extractors.items():
-            encoded_tensor_list.append(extractor(observations[key]))
-        output = torch.cat(encoded_tensor_list, dim=-1)
-        return output
-
-
-
-
-def make_agent(args, env):
-    policy_kwargs = dict(
-        features_extractor_class=EssayFeatures,
-        features_extractor_kwargs=dict(args=args),
-        activation_fn=nn.ReLU,
-        net_arch=[dict(pi=[256], vf=[256])]
-    )
-
-    log_dir = wandb.run.name if args.wandb else 'test'
-    return PPO("MultiInputPolicy", env,
-               policy_kwargs=policy_kwargs,
-               verbose=args.sb3_verbosity,
-               tensorboard_log=f"./log/{log_dir}/")

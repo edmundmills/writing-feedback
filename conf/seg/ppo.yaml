@@ -1,6 +1,3 @@
-defaults:
- - ner: ../ner
-
 name: segmentation
 
 train_ner_model: False
@@ -8,11 +5,7 @@ ner_model_name: firm-monkey-1
 
 train_steps: 1e6
 envs: 16
-action_space_dim: 256
 
 save_model: True
 sync_tensorboard: True
 sb3_verbosity: 1
-debug: False
-wandb: True
-seed: 0

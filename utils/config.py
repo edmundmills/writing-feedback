@@ -12,8 +12,14 @@ def parse_args():
     return args
 
 def get_config(filename, args=None):
-    overrides = args.overrides if args is not None else []
-    with initialize(config_path='../config/'):
+    if isinstance(args, OmegaConf):
+        overrides = args.overrides
+    elif args is None:
+        overrides = []
+    else:
+        overrides = args
+    path = '../conf/'
+    with initialize(config_path=path):
         cfg = compose(f'{filename}.yaml', overrides=overrides)
     print(OmegaConf.to_yaml(cfg))        
     return cfg

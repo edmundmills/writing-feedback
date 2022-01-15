@@ -7,7 +7,8 @@ import torch
 from wandb.integration.sb3 import WandbCallback
 
 from core.env import SequencewiseEnv
-from core.models.segmentation import SegmentationTokenizer, make_agent
+from core.ner import NERTokenizer
+from core.segmentation import make_agent
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun
@@ -26,13 +27,13 @@ if __name__ == '__main__':
 
     if args.debug:
         dataset = EssayDataset(n_essays=200)
-        args.train_steps = 100
+        args.seg.train_steps = 100
     else:
         dataset = EssayDataset()
 
     train, val = dataset.split()
 
-    tokenizer = SegmentationTokenizer(args.ner)
+    tokenizer = NERTokenizer(args.ner)
     env = SequencewiseEnv.make_vec(train, tokenizer, None, args)
  
     with WandBRun(args):

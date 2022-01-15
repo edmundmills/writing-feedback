@@ -5,7 +5,7 @@ import random
 import transformers
 import torch
 
-from core.models.segmentation import SegmentationModel, SegmentationTokenizer
+from core.segmentation import NERModel, NERTokenizer
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun
@@ -24,21 +24,21 @@ if __name__ == '__main__':
 
     if args.debug:
         dataset = EssayDataset(n_essays=200)
-        args.print_interval = 10
-        args.eval_interval = 10
-        args.eval_samples = 10
-        args.epochs = 3
+        args.ner.print_interval = 10
+        args.ner.eval_interval = 10
+        args.ner.eval_samples = 10
+        args.ner.epochs = 3
     else:
         dataset = EssayDataset()
 
     train, val = dataset.split()
 
-    tokenizer = SegmentationTokenizer(args)
+    tokenizer = NERTokenizer(args.ner)
 
     train = train.make_ner_dataset(tokenizer)
     val = val.make_ner_dataset(tokenizer)
 
-    model = SegmentationModel(args)
+    model = NERModel(args.ner)
 
     with WandBRun(args):
         model.train_ner(train, val, args)

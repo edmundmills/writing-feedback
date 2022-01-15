@@ -56,7 +56,7 @@ class MergeAssesor(nn.Module):
         return self.mlp(input)
 
 
-class ArgumentModel(Model):
+class DElemModel(Model):
     def __init__(self):
         super().__init__()
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')

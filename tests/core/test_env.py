@@ -5,12 +5,37 @@ from stable_baselines3.common.env_checker import check_env
 
 from core.env import *
 from core.dataset import Essay
-from core.models.segmentation import make_agent
+from core.segmentation import make_agent
+
+
+class TestWordwiseEnv:
+    def test_init(self, ner_tokenizer, dataset, kls_model, base_args):
+        env = WordwiseEnv(dataset, ner_tokenizer, kls_model, base_args.env)
+        assert(isinstance(env, WordwiseEnv))
+        check_env(env)
+
+    def test_reset(self, word_env):
+        state = word_env.reset()
+        assert(isinstance(state, dict))
+        assert(not word_env.done)
+    
+    def test_act(self, word_env):
+        word_env.reset()
+        state, reward, done, info = word_env.step(1)
+        assert(isinstance(state, dict))
+        assert(isinstance(reward, float))
+        assert(not done)
+
+    # def test_make_vec(self, base_args, ner_tokenizer, dataset, kls_model):
+    #     env = WordwiseEnv.make_vec(4, dataset, ner_tokenizer, kls_model, base_args.env)
+    #     assert(len(env.get_attr('done')) == 4)
+    #     assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
+    #     make_agent(base_args.seg, env)
 
 
 class TestSequencewiseEnv:
-    def test_init(self, seg_tokenizer, dataset, seg_args):
-        env = SequencewiseEnv(dataset, seg_tokenizer, None, seg_args)
+    def test_init(self, ner_tokenizer, dataset, kls_model, base_args):
+        env = SequencewiseEnv(dataset, ner_tokenizer, kls_model, base_args.env)
         assert(isinstance(env, SequencewiseEnv))
         check_env(env)
 
@@ -26,65 +51,65 @@ class TestSequencewiseEnv:
         assert(isinstance(reward, float))
         assert(not done)
 
-    def test_make_vec(self, seg_args, seg_tokenizer, dataset):
-        seg_args.envs = 4
-        env = SequencewiseEnv.make_vec(dataset, seg_tokenizer, None, seg_args)
-        assert(len(env.get_attr('done')) == seg_args.envs)
-        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
-        make_agent(seg_args, env)
+    # def test_make_vec(self, seg_tokenizer, dataset, kls_model, base_args):
+    #     env = SequencewiseEnv.make_vec(4, dataset, seg_tokenizer, kls_model, base_args.env)
+    #     assert(len(env.get_attr('done')) == 4)
+    #     assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
+    #     make_agent(base_args.seg, env)
+
 
 class TestAssignmentEnv:
-    def test_reset(self, env):
-        env.reset()
-        assert(env.done == False)
-        assert(env.reward == 0)
-        assert(isinstance(env.essay, Essay))
-        assert(isinstance(env.sentences, list))
-        position = torch.zeros(env.max_sentences)
+    def test_reset(self, assign_env):
+        assign_env.reset()
+        assert(assign_env.done == False)
+        assert(assign_env.reward == 0)
+        assert(isinstance(assign_env.essay, Essay))
+        assert(isinstance(assign_env.sentences, list))
+        position = torch.zeros(assign_env.max_sentences)
         position[0] = 1
-        assert(torch.equal(env.position, position))
+        assert(torch.equal(assign_env.position, position))
 
-    def test_env_done(self, env):
-        env.done = True
+    def test_env_done(self, assign_env):
+        assign_env.done = True
         with pytest.raises(RuntimeError):
-            env.step(0)
+            assign_env.step(0)
     
-    def test_action_not_in_actions(self, env):
-        env.reset()
+    def test_action_not_in_actions(self, assign_env):
+        assign_env.reset()
         with pytest.raises(ValueError):
-            env.step(-1)
+            assign_env.step(-1)
 
-    def test_up_valid(self, env):
-        env.reset()
-        expected_position = torch.zeros(env.max_sentences)
+    def test_up_valid(self, assign_env):
+        assign_env.reset()
+        expected_position = torch.zeros(assign_env.max_sentences)
         expected_position[1] = 1
-        (position, _, _), reward, done = env.step(0)
+        (position, _, _), reward, done = assign_env.step(0)
         assert(torch.equal(position, expected_position))
 
-    def test_up_invalid(self, env):
-        env.reset()
-        env._position = env.max_sentences - 1
-        expected_position = torch.zeros(env.max_sentences)
+    def test_up_invalid(self, assign_env):
+        assign_env.reset()
+        assign_env._position = assign_env.max_sentences - 1
+        expected_position = torch.zeros(assign_env.max_sentences)
         expected_position[-1] = 1
-        (position, _, _), reward, done = env.step(0)
+        (position, _, _), reward, done = assign_env.step(0)
         assert(torch.equal(position, expected_position))
 
-    def test_down_valid(self, env):
-        env.reset()
-        env._position = 2
-        expected_position = torch.zeros(env.max_sentences)
+    def test_down_valid(self, assign_env):
+        assign_env.reset()
+        assign_env._position = 2
+        expected_position = torch.zeros(assign_env.max_sentences)
         expected_position[1] = 1
-        (position, _, _), reward, done = env.step(1)
+        (position, _, _), reward, done = assign_env.step(1)
         assert(torch.equal(position, expected_position))
 
-    def test_down_invalid(self, env):
-        env.reset()
-        expected_position = torch.zeros(env.max_sentences)
+    def test_down_invalid(self, assign_env):
+        assign_env.reset()
+        expected_position = torch.zeros(assign_env.max_sentences)
         expected_position[0] = 1
-        (position, _, _), reward, done = env.step(1)
+        (position, _, _), reward, done = assign_env.step(1)
         assert(torch.equal(position, expected_position))
         
-    def test_end(self, env):
-        env.reset()
-        env.step(13)
-        assert(env.done == True)
+    def test_end(self, assign_env):
+        assign_env.reset()
+        assign_env.step(13)
+        assert(assign_env.done == True)

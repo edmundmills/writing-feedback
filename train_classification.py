@@ -5,7 +5,7 @@ import random
 import transformers
 import torch
 
-from core.models.classification import EssayModel
+from core.classification import EssayModel
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun

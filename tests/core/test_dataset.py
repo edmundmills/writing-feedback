@@ -69,8 +69,8 @@ class TestEssayDataset:
         assert(isinstance(polarity_dataset[0][0][0], str))
         assert(isinstance(polarity_dataset[0][0][1], str))
 
-    def test_make_ner_dataset(self, fix_seed, dataset, seg_tokenizer):
-        essay_feedback_dataset = dataset.make_ner_dataset(tokenizer=seg_tokenizer)
+    def test_make_ner_dataset(self, fix_seed, dataset, ner_tokenizer):
+        essay_feedback_dataset = dataset.make_ner_dataset(tokenizer=ner_tokenizer)
         assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
         assert(essay_feedback_dataset[0][0].size() == (1024,))
         assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
@@ -78,16 +78,16 @@ class TestEssayDataset:
         assert(isinstance(essay_feedback_dataset[0][2], torch.Tensor))
         assert(essay_feedback_dataset[0][1].size() == (1024,))
 
-    def test_make_essay_feedback_dataset(self, fix_seed, dataset, essay_model):
-        essay_feedback_dataset = dataset.make_essay_feedback_dataset(encoder=essay_model)
+    def test_make_essay_feedback_dataset(self, fix_seed, dataset, kls_model):
+        essay_feedback_dataset = dataset.make_essay_feedback_dataset(encoder=kls_model)
         assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
         assert(essay_feedback_dataset[0][0].size() == (32, 769))
         assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
         assert(essay_feedback_dataset[0][1].size() == (32, 1))
 
-    def test_make_essay_feedback_dataset_random(self, fix_seed, dataset, essay_model):
+    def test_make_essay_feedback_dataset_random(self, fix_seed, dataset, kls_model):
         essay_feedback_dataset = dataset.make_essay_feedback_dataset(
-            encoder=essay_model, randomize_segments=True)
+            encoder=kls_model, randomize_segments=True)
         assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
         assert(essay_feedback_dataset[0][0].size() == (32, 769))
         assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))

@@ -7,9 +7,9 @@ import pytest
 import torch
 
 from core.dataset import EssayDataset
-from core.env import AssigmentEnv, SequencewiseEnv
+from core.env import AssigmentEnv, SequencewiseEnv, WordwiseEnv
 from core.essay import Prediction
-from core.models.classification import EssayModel
+from core.classification import ClassificationModel
 from utils.config import get_config
 
 random.seed(0)
@@ -20,11 +20,63 @@ torch.cuda.manual_seed_all(0)
 encoded_sentence_length = 768
 encoded_essay_length = 1024
 
-class TestEncoder:
+
+@pytest.fixture
+def fix_seed():
+    random.seed(0)
+    np.random.seed(0)
+    torch.manual_seed(0)
+    torch.cuda.manual_seed_all(0)
+
+# ARGS
+
+@pytest.fixture
+def base_args():
+    args = get_config('base')
+    args.wandb = False
+    return args
+
+@pytest.fixture
+def kls_args():
+    args = OmegaConf.load('conf/kls/classification.yaml')
+    return args
+
+@pytest.fixture
+def seg_args():
+    args = OmegaConf.load('conf/seg/ppo.yaml')
+    return args
+
+@pytest.fixture
+def ner_args():
+    args = OmegaConf.load('conf/ner/ner.yaml')
+    return args
+
+# DATASET
+
+@pytest.fixture
+def dataset():
+    return EssayDataset(n_essays=10)
+
+@pytest.fixture
+def essay():
+    return EssayDataset(n_essays=1)[0]
+
+@pytest.fixture
+def pstrings():
+    return ['0 1 2', '3 4 5', '6 7 8 9']
+
+@pytest.fixture
+def prediction():
+    return Prediction(0, 10, 1, 1)
+
+# ENCODERS AND TOKENIZERS
+
+class DElemEncoder:
     def encode(self, sentences: List[str]):
         return torch.rand(len(sentences), encoded_sentence_length)
 
-class EncodedEssay:
+
+class NERTokenized:
     def __init__(self, input_ids, attention_mask) -> None:
         self.input_ids = input_ids
         self.attention_mask = attention_mask
@@ -41,80 +93,29 @@ class EncodedEssay:
         return list(range(len(self.input_ids)))
 
 
-class TestSegmentationTokenizer:
+class NERTokenizer:
     def __init__(self) -> None:
         self.max_tokens = encoded_essay_length
         
     def encode(self, text:str):
         encoded_text = torch.LongTensor(list(range(encoded_essay_length))).unsqueeze(0)
         attention_mask = torch.ones(1, encoded_essay_length, dtype=torch.uint8)
-        return EncodedEssay(encoded_text, attention_mask)
-
+        return NERTokenized(encoded_text, attention_mask)
 
 
 @pytest.fixture
-def fix_seed():
-    random.seed(0)
-    np.random.seed(0)
-    torch.manual_seed(0)
-    torch.cuda.manual_seed_all(0)
-
-@pytest.fixture
-def dataset():
-    return EssayDataset(n_essays=10)
-
-@pytest.fixture
-def env():
-    return AssigmentEnv(n_essays=10)
-
-@pytest.fixture
-def essay():
-    return EssayDataset(n_essays=1)[0]
-
-@pytest.fixture
-def pstrings():
-    return ['0 1 2', '3 4 5', '6 7 8 9']
-
-@pytest.fixture
-def prediction():
-    return Prediction(0, 10, 1, 1)
-
-@pytest.fixture
-def d_elem_encoder():
-    return TestEncoder()
-
-@pytest.fixture
-def essay_feedback_args():
-    args = OmegaConf.load('config/classification.yaml')
-    return args
-
-@pytest.fixture
-def essay_model():
-    args = OmegaConf.load('config/classification.yaml')
-    args.num_encoder_layers = 1
-    return EssayModel(args, d_elem_encoder=TestEncoder())
-
-@pytest.fixture
-def seg_args():
-    args = get_config('segmentation')
-    args.wandb = False
-    return args
-
-@pytest.fixture
-def seq_env():
-    dataset = EssayDataset(n_essays=10)
-    encoder = TestSegmentationTokenizer()
-    args = get_config('segmentation') 
-    env = SequencewiseEnv(dataset, encoder, None, args)
-    return env
-
-@pytest.fixture
-def seg_tokenizer():
-    return TestSegmentationTokenizer()
+def ner_tokenizer():
+    return NERTokenizer()
 
 @pytest.fixture
 def encoded_essay():
-    return TestSegmentationTokenizer().encode('')
+    return NERTokenizer().encode('')
+
+
+@pytest.fixture
+def d_elem_encoder():
+    return DElemEncoder()
+
 
 @pytest.fixture
 def encoded_preds():
@@ -125,4 +126,40 @@ def encoded_preds():
     preds[90] = 1
     preds[100] = 1
     return torch.LongTensor(preds).unsqueeze(0)
+
+
+# MODELS
+
+@pytest.fixture
+def kls_model():
+    args = get_config('base')
+    args.kls.num_attention_layers = 1
+    return ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
+
+# ENVS
+
+@pytest.fixture
+def assign_env():
+    return AssigmentEnv(n_essays=10)
+
+@pytest.fixture
+def seq_env():
+    dataset = EssayDataset(n_essays=10)
+    encoder = NERTokenizer()
+    args = get_config('base', args=['env=seqwise'])
+    args.kls.num_attention_layers = 1
+    kls_model = ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
+    env = SequencewiseEnv(dataset, encoder, kls_model, args.env)
+    return env
+
+@pytest.fixture
+def word_env():
+    args = get_config('base', args=['env=wordwise'])
+    dataset = EssayDataset(n_essays=10)
+    encoder = NERTokenizer()
+    args.kls.num_attention_layers = 1
+    kls_model = ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
+    env = WordwiseEnv(dataset, encoder, kls_model, args.env)
+    return env
+
 

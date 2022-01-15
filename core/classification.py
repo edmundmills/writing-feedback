@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.constants import argument_names
-from core.models.argument_encoder import ArgumentModel
-from utils.grading import get_discourse_elements, get_labels
+from core.d_elems import DElemModel
+from utils.grading import get_discourse_elements
 from utils.networks import Model, MLP, PositionalEncoder, Mode
 
 
@@ -43,11 +43,11 @@ class EssayDELemClassifier(nn.Module):
         return preds
 
 
-class EssayModel(Model):
+class ClassificationModel(Model):
     def __init__(self, args, d_elem_encoder=None) -> None:
         super().__init__()
         self.max_d_elems = args.max_discourse_elements
-        self.d_elem_encoder = d_elem_encoder or ArgumentModel()
+        self.d_elem_encoder = d_elem_encoder or DElemModel()
         self.positional_encoder = PositionalEncoder(self.max_d_elems)
         self.essay_feedback = EssayDELemClassifier(
             max_d_elems=args.max_discourse_elements,

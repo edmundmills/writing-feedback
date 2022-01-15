@@ -14,25 +14,25 @@ from utils.grading import to_tokens
 
 
 class SegmentationEnv(gym.Env):
-    def __init__(self, essay_dataset, word_tokenizer, argument_classifier, args) -> None:
+    def __init__(self, essay_dataset, word_tokenizer, d_elem_classifier, args) -> None:
         super().__init__()
         self.dataset = essay_dataset
         self.word_tokenizer = word_tokenizer
-        self.argument_classifier = argument_classifier
+        self.d_elem_classifier = d_elem_classifier
         self.essay = None
         self.encoded_essay_text = None
         self.done = None
-        self.max_words = args.ner.essay_max_tokens
+        self.max_words = word_tokenizer.max_tokens
     
     @classmethod
-    def make_vec(cls, essay_dataset, word_tokenizer, argument_classifier, args):
+    def make_vec(cls, n_envs, essay_dataset, word_tokenizer, d_elem_classifier, env_args):
         print('Making Vectorized Environment')
-        dataset_fracs = [1 / args.envs] * args.envs
+        dataset_fracs = [1 / n_envs] * n_envs
         print(dataset_fracs)
         datasets = essay_dataset.split(dataset_fracs)
         def make_env(dataset):
             def _init():
-                env = cls(dataset, word_tokenizer, argument_classifier, args)
+                env = cls(dataset, word_tokenizer, d_elem_classifier, env_args)
 
                 return env
             return _init
@@ -77,9 +77,43 @@ class SegmentationEnv(gym.Env):
 
 
 
+class WordwiseEnv(SegmentationEnv):
+    def __init__(self, essay_dataset, word_tokenizer, d_elem_classifier, env_args) -> None:
+        super().__init__(essay_dataset, word_tokenizer, d_elem_classifier, env_args)
+        self.action_space = spaces.Discrete(self.max_words)
+        self.observation_space = spaces.Dict({
+            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
+            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8),
+            'classification_probs': spaces.Box(
+                low=0, high=1,
+                shape=(d_elem_classifier.max_d_elems, len(argument_names)))
+        })
+
+    @property
+    def state(self):
+        state = {
+            'essay_tokens': self.essay_tokens,
+            'pred_tokens': self.prediction_tokens,
+            'classification_probs': self.classification_probs()
+        }
+        return state
+
+    def classification_probs(self):
+        pass
+
+    def step(self, action):
+        init_value = self.current_state_value()
+        reward = self.current_state_value() - init_value
+        info = {}
+        return self.state, reward, self.done, info
+
+    def reset(self):
+        return super().reset()
+
+
 class SequencewiseEnv(SegmentationEnv):
-    def __init__(self, essay_dataset, word_tokenizer, argument_classifier, args) -> None:
-        super().__init__(essay_dataset, word_tokenizer, argument_classifier, args)
+    def __init__(self, essay_dataset, word_tokenizer, d_elem_classifier, args) -> None:
+        super().__init__(essay_dataset, word_tokenizer, d_elem_classifier, args)
         self.action_space = spaces.Discrete(args.action_space_dim)
         self.observation_space = spaces.Dict({
             'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
