@@ -1,6 +1,6 @@
 name: classification
 
-epochs: 200
+epochs: 20
 lr: 1e-3
 batch_size: 128
 
@@ -12,12 +12,13 @@ max_discourse_elements: 32
 
 num_attention_layers: 2
 nhead: 8
-num_linear_layers: 3
+num_linear_layers: 2
 linear_layer_size: 512
 intermediate_layer_size: 64
-dropout: 0.3
+dropout: 0.2
 
-use_correct_segments: False
+use_correct_segments: True
 debug: False
 wandb: True
+save_model: True
 seed: 0
