@@ -7,7 +7,7 @@ import pytest
 import torch
 
 from core.dataset import EssayDataset
-from core.env import AssigmentEnv, SegmentationEnv
+from core.env import AssigmentEnv, SequencewiseEnv
 from core.essay import Prediction
 from core.models.classification import EssayModel
 from utils.config import get_config
@@ -101,11 +101,11 @@ def seg_args():
     return args
 
 @pytest.fixture
-def seg_env():
+def seq_env():
     dataset = EssayDataset(n_essays=10)
     encoder = TestSegmentationTokenizer()
     args = get_config('segmentation') 
-    env = SegmentationEnv(dataset, encoder, None, args)
+    env = SequencewiseEnv(dataset, encoder, None, args)
     return env
 
 @pytest.fixture

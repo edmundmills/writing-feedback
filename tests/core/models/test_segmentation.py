@@ -28,5 +28,5 @@ class TestEncode:
         assert(tokenized['attention_mask'].size() == (1, 1024))
 
 class TestAgent:
-    def test_make(self, seg_env, seg_args):
-        make_agent(seg_args, seg_env)
+    def test_make(self, seq_env, seg_args):
+        make_agent(seg_args, seq_env)

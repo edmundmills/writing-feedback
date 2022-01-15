@@ -6,7 +6,7 @@ import transformers
 import torch
 from wandb.integration.sb3 import WandbCallback
 
-from core.env import SegmentationEnv
+from core.env import SequencewiseEnv
 from core.models.segmentation import SegmentationTokenizer, make_agent
 from core.dataset import EssayDataset
 
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     train, val = dataset.split()
 
     tokenizer = SegmentationTokenizer(args.ner)
-    env = SegmentationEnv.make_vec(train, tokenizer, None, args)
+    env = SequencewiseEnv.make_vec(train, tokenizer, None, args)
  
     with WandBRun(args):
         agent = make_agent(args, env)

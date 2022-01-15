@@ -21,15 +21,9 @@ class SegmentationEnv(gym.Env):
         self.argument_classifier = argument_classifier
         self.essay = None
         self.encoded_essay_text = None
-        self.word_idx = None
         self.done = None
         self.max_words = args.ner.essay_max_tokens
-        self.action_space = spaces.Discrete(args.action_space_dim)
-        self.observation_space = spaces.Dict({
-            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
-            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
-        })
-
+    
     @classmethod
     def make_vec(cls, essay_dataset, word_tokenizer, argument_classifier, args):
         print('Making Vectorized Environment')
@@ -54,12 +48,8 @@ class SegmentationEnv(gym.Env):
 
     @property
     def state(self):
-        state = {
-            'essay_tokens': self.essay_tokens,
-            'pred_tokens': self.prediction_tokens
-        }
-        return state
-        
+        raise NotImplementedError
+
     def current_state_value(self):
         labels = self.essay.get_labels(self.predictions)
         predictions = [
@@ -70,29 +60,49 @@ class SegmentationEnv(gym.Env):
         ]
         return self.essay.grade(predictions)['f_score']
 
+
     def reset(self):
         if self.essay:
             print(self.current_state_value())
         self.essay = self.dataset.random_essay()[0]
         self.predictions = []
-        self.word_idx = 0
         self.done = False
         encoded = self.word_tokenizer.encode(self.essay.text)
         self.encoded_essay_text = encoded['input_ids']
         self.attention_mask = encoded['attention_mask']
+        self.word_ids = encoded.word_ids()
         self.essay_tokens = torch.cat((self.encoded_essay_text,
                                          self.attention_mask), dim=0).numpy()
         return self.state
+
+
+
+class SequencewiseEnv(SegmentationEnv):
+    def __init__(self, essay_dataset, word_tokenizer, argument_classifier, args) -> None:
+        super().__init__(essay_dataset, word_tokenizer, argument_classifier, args)
+        self.action_space = spaces.Discrete(args.action_space_dim)
+        self.observation_space = spaces.Dict({
+            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
+            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
+        })
+
+    def reset(self):
+        self.word_idx = 0
+        return super().reset()
+
+    @property
+    def state(self):
+        state = {
+            'essay_tokens': self.essay_tokens,
+            'pred_tokens': self.prediction_tokens
+        }
+        return state
 
     def step(self, action:int):
         action = action + 2 # Segments must be at least 2 words long
         init_value = self.current_state_value()
         pred_end = min(self.word_idx + action - 1, len(self.essay.words) - 1)
-        try:
-            self.predictions.append(Prediction(self.word_idx, pred_end, -1, self.essay.essay_id))
-        except ValueError:
-            print(self.word_idx, action, pred_end, len(self.essay.words))
-            raise RuntimeError
+        self.predictions.append(Prediction(self.word_idx, pred_end, -1, self.essay.essay_id))
         self.word_idx += action
         if self.word_idx + 1 >= min(len(self.essay.words), self.max_words):
             self.done = True

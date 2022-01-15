@@ -8,27 +8,27 @@ from core.dataset import Essay
 from core.models.segmentation import make_agent
 
 
-class TestSegmentationEnv:
+class TestSequencewiseEnv:
     def test_init(self, seg_tokenizer, dataset, seg_args):
-        env = SegmentationEnv(dataset, seg_tokenizer, None, seg_args)
-        assert(isinstance(env, SegmentationEnv))
+        env = SequencewiseEnv(dataset, seg_tokenizer, None, seg_args)
+        assert(isinstance(env, SequencewiseEnv))
         check_env(env)
 
-    def test_reset(self, seg_env):
-        state = seg_env.reset()
+    def test_reset(self, seq_env):
+        state = seq_env.reset()
         assert(isinstance(state, dict))
-        assert(not seg_env.done)
+        assert(not seq_env.done)
     
-    def test_act(self, seg_env):
-        seg_env.reset()
-        state, reward, done, info = seg_env.step(1)
+    def test_act(self, seq_env):
+        seq_env.reset()
+        state, reward, done, info = seq_env.step(1)
         assert(isinstance(state, dict))
         assert(isinstance(reward, float))
         assert(not done)
 
     def test_make_vec(self, seg_args, seg_tokenizer, dataset):
         seg_args.envs = 4
-        env = SegmentationEnv.make_vec(dataset, seg_tokenizer, None, seg_args)
+        env = SequencewiseEnv.make_vec(dataset, seg_tokenizer, None, seg_args)
         assert(len(env.get_attr('done')) == seg_args.envs)
         assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
         make_agent(seg_args, env)
