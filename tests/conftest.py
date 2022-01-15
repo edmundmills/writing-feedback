@@ -5,6 +5,7 @@ import numpy as np
 from omegaconf import OmegaConf
 import pytest
 import torch
+from core.d_elems import DElemTokenizer
 
 from core.dataset import EssayDataset
 from core.env import AssigmentEnv, SequencewiseEnv, WordwiseEnv
@@ -102,6 +103,11 @@ class NERTokenizer:
         attention_mask = torch.ones(1, encoded_essay_length, dtype=torch.uint8)
         return NERTokenized(encoded_text, attention_mask)
 
+@pytest.fixture
+def d_elem_tokenizer():
+    kls_args = get_config('base').kls
+    d_elem_tokenizer = DElemTokenizer(kls_args)
+    return d_elem_tokenizer
 
 @pytest.fixture
 def ner_tokenizer():

@@ -1,5 +1,6 @@
 from collections import deque
 import time
+from typing import List
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -11,7 +12,55 @@ from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.dataset import argument_names
-from utils.networks import MLP, Model
+from utils.networks import MLP, Model, PositionalEncoder
+
+
+class DElemTokenizer:
+    def __init__(self, kls_args) -> None:
+        st = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
+        self.tokenizer = st.tokenizer
+        self.max_d_elems = kls_args.max_discourse_elements
+        self.max_seq_len = 768
+
+    def tokenize(self, texts:List[str]) -> torch.Tensor:
+        n_d_elems = len(texts)
+        output = {}
+        to_tokenize = [texts]
+        to_tokenize = [[str(s).strip() for s in col] for col in to_tokenize]
+        to_tokenize = [[s.lower() for s in col] for col in to_tokenize]
+        with torch.no_grad():
+            output.update(self.tokenizer(*to_tokenize,
+                                         padding='max_length',
+                                         truncation='longest_first',
+                                         return_tensors="np",
+                                         max_length=self.max_seq_len))
+        output['input_ids'] = np.concatenate((output['input_ids'][:self.max_d_elems,:],
+                                             np.ones((self.max_d_elems - n_d_elems, self.max_seq_len))))
+        output['attention_mask'] = np.concatenate((output['attention_mask'][:self.max_d_elems,:],
+                                                  np.zeros((self.max_d_elems - n_d_elems, self.max_seq_len))))
+        return output
+
+class DElemEncoder(SentenceTransformer):
+    def __init__(self, kls_args):
+        super().__init__('sentence-transformers/all-mpnet-base-v2')
+        self.max_d_elems = kls_args.max_discourse_elements
+
+    def encode(self, features):
+        features = {k: torch.LongTensor(v).to(self.device) for k, v in features.items()}
+        d_elem_lens = torch.sum(features['attention_mask'], dim=-1, keepdim=True)
+        with torch.no_grad():
+            out_features = self.forward(features)
+            embeddings = []
+            for sent_idx in range(len(out_features['sentence_embedding'])):
+                row = out_features['sentence_embedding'][sent_idx]
+                embeddings.append(row)
+            encoded = torch.stack(embeddings)
+            encoded = PositionalEncoder(self.max_d_elems)(encoded)
+            encoded = torch.cat((d_elem_lens, encoded), dim=-1)
+        return encoded
+
+
+
 
 class ArgumentClassifier(nn.Module):
     def __init__(self):
