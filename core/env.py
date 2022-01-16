@@ -19,6 +19,7 @@ class SegmentationEnv(gym.Env):
         self.dataset = essay_dataset
         self.word_tokenizer = word_tokenizer
         self.d_elem_tokenizer = d_elem_tokenizer
+        self.max_d_elems = d_elem_tokenizer.max_d_elems
         self.essay = None
         self.encoded_essay_text = None
         self.done = None
@@ -80,34 +81,40 @@ class SegmentationEnv(gym.Env):
 class WordwiseEnv(SegmentationEnv):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
         super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, env_args)
-        self.action_space = spaces.Discrete(self.max_words)
+        self.action_space = spaces.MultiDiscrete(
+            [2] + [2] * self.max_words + [len(argument_names)] * self.max_d_elems)
         self.observation_space = spaces.Dict({
-            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
-            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8),
-            'classification_probs': spaces.Box(
-                low=0, high=1,
-                shape=(d_elem_tokenizer.max_d_elems, len(argument_names)))
+            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words)),
+            'prev_segmentation': spaces.Box(low=0, high=1, shape=(self.max_words,)),
+            'prev_d_elem_tokens': spaces.Box(
+                low=0, high=100000,
+                shape=(self.max_d_elems, len(argument_names)))
         })
 
     @property
     def state(self):
         state = {
             'essay_tokens': self.essay_tokens,
-            'pred_tokens': self.prediction_tokens,
-            'classification_probs': self.classification_probs()
+            'prev_segmentation': self.prev_segmentation,
+            'prev_d_elem_tokens': self.prev_d_elem_tokens,
         }
         return state
 
-    def classification_probs(self):
-        pass
-
     def step(self, action):
         init_value = self.current_state_value()
+        self.done = bool(action[0])
+        self.prev_segmentation = action[1:self.max_words+1]
+        classifications = action[self.max_words+1:]
+        # make predictions
+        # save prev_d_elem_tokens
+
         reward = self.current_state_value() - init_value
         info = {}
         return self.state, reward, self.done, info
 
     def reset(self):
+        self.prev_segmentation = np.zeros(self.max_words)
+        self.prev_d_elem_tokens = np.zeros((self.max_d_elems, len(argument_names)))
         return super().reset()
 
 

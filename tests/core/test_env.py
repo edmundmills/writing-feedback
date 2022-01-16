@@ -9,8 +9,8 @@ from core.segmentation import make_agent
 
 
 class TestWordwiseEnv:
-    def test_init(self, ner_tokenizer, dataset, kls_model, base_args):
-        env = WordwiseEnv(dataset, ner_tokenizer, kls_model, base_args.env)
+    def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, base_args):
+        env = WordwiseEnv(dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
         assert(isinstance(env, WordwiseEnv))
         check_env(env)
 
@@ -21,21 +21,22 @@ class TestWordwiseEnv:
     
     def test_act(self, word_env):
         word_env.reset()
-        state, reward, done, info = word_env.step(1)
+        action = np.zeros(1 + 1024 + 32)
+        state, reward, done, info = word_env.step(action)
         assert(isinstance(state, dict))
         assert(isinstance(reward, float))
         assert(not done)
 
-    # def test_make_vec(self, base_args, ner_tokenizer, dataset, kls_model):
-    #     env = WordwiseEnv.make_vec(4, dataset, ner_tokenizer, kls_model, base_args.env)
-    #     assert(len(env.get_attr('done')) == 4)
-    #     assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
-    #     make_agent(base_args.seg, env)
+    def test_make_vec(self, base_args, ner_tokenizer, dataset, d_elem_tokenizer):
+        env = WordwiseEnv.make_vec(4, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
+        assert(len(env.get_attr('done')) == 4)
+        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
+        make_agent(base_args, env)
 
 
 class TestSequencewiseEnv:
-    def test_init(self, ner_tokenizer, dataset, kls_model, base_args):
-        env = SequencewiseEnv(dataset, ner_tokenizer, kls_model, base_args.env)
+    def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, base_args):
+        env = SequencewiseEnv(dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
         assert(isinstance(env, SequencewiseEnv))
         check_env(env)
 
@@ -51,11 +52,11 @@ class TestSequencewiseEnv:
         assert(isinstance(reward, float))
         assert(not done)
 
-    # def test_make_vec(self, seg_tokenizer, dataset, kls_model, base_args):
-    #     env = SequencewiseEnv.make_vec(4, dataset, seg_tokenizer, kls_model, base_args.env)
-    #     assert(len(env.get_attr('done')) == 4)
-    #     assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
-    #     make_agent(base_args.seg, env)
+    def test_make_vec(self, ner_tokenizer, dataset, d_elem_tokenizer, base_args):
+        env = SequencewiseEnv.make_vec(4, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
+        assert(len(env.get_attr('done')) == 4)
+        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
+        make_agent(base_args, env)
 
 
 class TestAssignmentEnv:

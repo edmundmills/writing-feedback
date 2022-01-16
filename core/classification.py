@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.constants import argument_names
-from core.d_elems import DElemModel
+from core.d_elems import DElemEncoder, DElemModel
 from utils.grading import get_discourse_elements
 from utils.networks import Model, MLP, PositionalEncoder, Mode
 
@@ -47,8 +47,7 @@ class ClassificationModel(Model):
     def __init__(self, args, d_elem_encoder=None) -> None:
         super().__init__()
         self.max_d_elems = args.max_discourse_elements
-        self.d_elem_encoder = d_elem_encoder or DElemModel()
-        self.positional_encoder = PositionalEncoder(self.max_d_elems)
+        self.d_elem_encoder = d_elem_encoder or DElemEncoder(args)
         self.essay_feedback = EssayDELemClassifier(
             max_d_elems=args.max_discourse_elements,
             num_attention_layers=args.num_attention_layers,
@@ -57,16 +56,6 @@ class ClassificationModel(Model):
             linear_layer_size=args.linear_layer_size,
             intermediate_layer_size=args.intermediate_layer_size,
             dropout=args.dropout).to(self.device)
-
-    def encode(self, sample):
-        encoded_tensor = self.d_elem_encoder.encode(sample).cpu()
-        encoded_tensor = self.positional_encoder(encoded_tensor)
-        d_elem_lens = torch.LongTensor([len(d_elem.split()) for d_elem in sample]).unsqueeze(-1)
-        encoded_tensor = torch.cat((d_elem_lens, encoded_tensor), dim=-1)
-        padding_size = (max(0, self.max_d_elems - len(sample)), *encoded_tensor.size()[1:])
-        padded_tensor = torch.cat((encoded_tensor[:self.max_d_elems, ...],
-                                   -torch.ones(padding_size)), dim=0)
-        return padded_tensor
 
     def inference(self, text:str, predictionstrings:List[str]):
         self.essay_feedback.eval()
