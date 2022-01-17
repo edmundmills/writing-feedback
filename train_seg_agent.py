@@ -6,16 +6,17 @@ import transformers
 import torch
 from wandb.integration.sb3 import WandbCallback
 
-from core.env import SequencewiseEnv
+from core.d_elems import DElemTokenizer
+from core.dataset import EssayDataset
+from core.env import DividerEnv, SequencewiseEnv
 from core.ner import NERTokenizer
 from core.segmentation import make_agent
-from core.dataset import EssayDataset
-
 from utils.config import parse_args, get_config, WandBRun
+
 
 if __name__ == '__main__':
     args = parse_args()
-    args = get_config('segmentation', args)
+    args = get_config('base', args)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
@@ -33,8 +34,9 @@ if __name__ == '__main__':
 
     train, val = dataset.split()
 
-    tokenizer = NERTokenizer(args.ner)
-    env = SequencewiseEnv.make_vec(train, tokenizer, None, args)
+    ner_tokenizer = NERTokenizer(args.ner)
+    d_elem_tokenizer = DElemTokenizer(args.kls)
+    env = DividerEnv.make_vec(args.seg.envs, train, ner_tokenizer, d_elem_tokenizer, args.env)
  
     with WandBRun(args):
         agent = make_agent(args, env)
@@ -44,4 +46,4 @@ if __name__ == '__main__':
                 verbose=2)
         else:
             callback = None
-        agent.learn(total_timesteps=args.train_steps, callback=callback)
+        agent.learn(total_timesteps=args.seg.train_steps, callback=callback)

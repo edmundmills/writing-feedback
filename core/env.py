@@ -66,7 +66,7 @@ class SegmentationEnv(gym.Env):
 
     def reset(self):
         if self.essay:
-            print(self.current_state_value())
+            print(self.current_state_value() - self.env_init_value)
         self.essay = self.dataset.random_essay()[0]
         self.predictions = []
         self.done = False
@@ -77,6 +77,7 @@ class SegmentationEnv(gym.Env):
         self.essay_tokens = torch.cat((self.encoded_essay_text,
                                        self.attention_mask,
                                        self.word_id_tensor), dim=0).numpy()
+        self.env_init_value = self.current_state_value()
         return self.state
 
 
@@ -95,23 +96,25 @@ class DividerEnv(SegmentationEnv):
             'essay_tokens': self.essay_tokens,
             'pred_tokens': self.prediction_tokens
         }
-        print(state)
         return state
 
     def reset(self):
         super().reset()
         self.predictions = self._initial_predictions()
+        self.env_init_value = self.current_state_value()
+        self.steps = 0
         return self.state
 
     def step(self, action):
         init_value = self.current_state_value()
-        distance = 1
+        distance = 4
+        self.steps += 1
         for idx, act in enumerate(action[:-2]):
             new_stop = min(self.max_words - 1, self.predictions[idx].stop + (distance * (int(act) - 1)))
             self.predictions[idx].stop = new_stop
             new_start = max(0, self.predictions[idx+1].start + (distance * (int(act) - 1)))
             self.predictions[idx+1].start = new_start
-        self.done = bool(action[-1])
+        self.done = bool(action[-1]) and self.steps >= 10
         reward = self.current_state_value() - init_value
         info = {}
         return self.state, reward, self.done, info
