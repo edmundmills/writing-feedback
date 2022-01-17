@@ -7,8 +7,8 @@ from utils.grading import get_labels, ismatch, prediction_string, start_num, end
 
 class Prediction:
     def __init__(self, start, stop, label, essay_id) -> None:
-        self.start = start
-        self.stop = stop
+        self.start = int(start)
+        self.stop = int(stop)
         if stop < start:
             raise ValueError('Prediction start cant be before prediction stop')
         self.label = label

@@ -8,7 +8,7 @@ import torch
 from core.d_elems import DElemTokenizer
 
 from core.dataset import EssayDataset
-from core.env import AssigmentEnv, SequencewiseEnv, WordwiseEnv
+from core.env import AssigmentEnv, DividerEnv, SequencewiseEnv, WordwiseEnv
 from core.essay import Prediction
 from core.classification import ClassificationModel
 from utils.config import get_config
@@ -162,6 +162,17 @@ def seq_env():
     args.kls.num_attention_layers = 1
     kls_model = ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
     env = SequencewiseEnv(dataset, encoder, kls_model, args.env)
+    return env
+
+
+@pytest.fixture
+def divider_env():
+    dataset = EssayDataset(n_essays=10)
+    encoder = NERTokenizer()
+    args = get_config('base', args=['env=divider'])
+    args.kls.num_attention_layers = 1
+    kls_model = ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
+    env = DividerEnv(dataset, encoder, kls_model, args.env)
     return env
 
 @pytest.fixture

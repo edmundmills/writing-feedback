@@ -48,7 +48,7 @@ class SegmentationEnv(gym.Env):
     @property
     def prediction_tokens(self):
         return to_tokens(self.predictions,
-                         num_words=min(self.max_words, self.max_words))
+                         num_words=self.max_words)
 
     @property
     def state(self):
@@ -81,6 +81,53 @@ class SegmentationEnv(gym.Env):
         return self.state
 
 
+class DividerEnv(SegmentationEnv):
+    def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
+        super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, env_args)
+        self.action_space = spaces.MultiDiscrete([3]*(self.max_d_elems - 1) + [2])
+        self.observation_space = spaces.Dict({
+            'essay_tokens': self.essay_tokens_space,
+            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
+        })
+
+    @property
+    def state(self):
+        state = {
+            'essay_tokens': self.essay_tokens,
+            'pred_tokens': self.prediction_tokens
+        }
+        print(state)
+        return state
+
+    def reset(self):
+        super().reset()
+        self.predictions = self._initial_predictions()
+        return self.state
+
+    def step(self, action):
+        init_value = self.current_state_value()
+        distance = 1
+        for idx, act in enumerate(action[:-2]):
+            new_stop = min(self.max_words - 1, self.predictions[idx].stop + (distance * (int(act) - 1)))
+            self.predictions[idx].stop = new_stop
+            new_start = max(0, self.predictions[idx+1].start + (distance * (int(act) - 1)))
+            self.predictions[idx+1].start = new_start
+        self.done = bool(action[-1])
+        reward = self.current_state_value() - init_value
+        info = {}
+        return self.state, reward, self.done, info
+
+    def _initial_predictions(self):
+        preds = []
+        start = 0
+        for _ in range(self.max_d_elems):
+            label = -1
+            stop = min(start + self.max_words // self.max_d_elems, self.max_words - 1)
+            preds.append(Prediction(start, stop, label, self.essay.essay_id))
+            start = stop + 1
+        preds[-1].stop = self.max_words - 1
+        return preds
+
 
 class WordwiseEnv(SegmentationEnv):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
@@ -94,6 +141,7 @@ class WordwiseEnv(SegmentationEnv):
                 low=0, high=100000,
                 shape=(self.max_d_elems, len(argument_names)))
         })
+
 
     @property
     def state(self):

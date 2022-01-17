@@ -1,11 +1,59 @@
 import pytest
 
-from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_checker import check_env
+from torch import div
 
 from core.env import *
 from core.dataset import Essay
 from core.segmentation import make_agent
+
+
+
+
+class TestDividerEnv:
+    def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, base_args):
+        env = DividerEnv(dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
+        assert(isinstance(env, DividerEnv))
+        check_env(env)
+
+    def test_reset(self, divider_env):
+        state = divider_env.reset()
+        assert(isinstance(state, dict))
+        assert(not divider_env.done)
+        assert(len(divider_env.predictions) == divider_env.max_d_elems)
+        for idx in range(divider_env.max_d_elems - 1):
+            pred1 = divider_env.predictions[idx]
+            pred2 = divider_env.predictions[idx + 1]
+            assert(pred1.stop + 1 == pred2.start)
+    
+    def test_act(self, divider_env):
+        divider_env.reset()
+        action = np.zeros(32)
+        action[2] = 2
+        pred1 = divider_env.predictions[2]
+        pred2 = divider_env.predictions[3]
+        stop, start = pred1.stop, pred2.start
+        state, reward, done, info = divider_env.step(action)
+        pred1 = divider_env.predictions[2]
+        pred2 = divider_env.predictions[3]
+        assert(isinstance(state, dict))
+        assert(isinstance(reward, float))
+        assert(stop + 1 == pred1.stop)
+        assert(start + 1 == pred2.start)
+        assert(not done)
+
+    def test_act_done(self, divider_env):
+        divider_env.reset()
+        action = np.zeros(32)
+        action[-1] = 1
+        state, reward, done, info = divider_env.step(action)
+        assert(done)
+
+    def test_make_vec(self, base_args, ner_tokenizer, dataset, d_elem_tokenizer):
+        env = DividerEnv.make_vec(2, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
+        assert(len(env.get_attr('done')) == 2)
+        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
+        make_agent(base_args, env)
 
 
 class TestWordwiseEnv:
