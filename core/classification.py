@@ -1,6 +1,5 @@
 import time
 from collections import deque
-from typing import List
 
 import numpy as np
 import torch
@@ -10,9 +9,8 @@ from torch.utils.data import DataLoader, RandomSampler
 import wandb
 
 from core.constants import argument_names
-from core.d_elems import DElemEncoder, DElemModel
-from utils.grading import get_discourse_elements
-from utils.networks import Model, MLP, PositionalEncoder, Mode
+from core.d_elems import DElemEncoder
+from utils.networks import Model, MLP, Mode
 
 
 class EssayDELemClassifier(nn.Module):
@@ -57,63 +55,8 @@ class ClassificationModel(Model):
             intermediate_layer_size=args.intermediate_layer_size,
             dropout=args.dropout).to(self.device)
 
-    def inference(self, text:str, predictionstrings:List[str]):
-        self.essay_feedback.eval()
-        d_elems = get_discourse_elements(text, predictionstrings)
-        encoded_text = self.encode(d_elems).to(self.device).unsqueeze(0)
-        with torch.no_grad():
-            preds = self.essay_feedback(encoded_text)
-        preds = F.softmax(preds, dim=-1)
-        self.essay_feedback.train()
-        return preds
-
-    # def train(self, train_dataset, val_dataset, args):
-    #     with Mode(self.essay_feedback, mode='train'):
-    #         optimizer = torch.optim.AdamW(self.essay_feedback.parameters(), lr=args.lr)
-
-    #         running_loss = deque(maxlen=args.print_interval)
-    #         timestamps = deque(maxlen=args.print_interval)
-    #         step = 0
-
-    #         for epoch in range(1, args.epochs + 1):
-    #             print(f'Starting Epoch {epoch}')
-    #             for essay in train_dataset:
-    #                 pstrings = essay.random_pstrings()
-    #                 labels = get_labels(pstrings, essay, num_d_elems=self.max_d_elems)
-    #                 labels = torch.LongTensor(labels).to(self.device)
-    #                 d_elems = get_discourse_elements(essay.text, pstrings)
-    #                 with torch.no_grad():
-    #                     encoded_text = self.encode(d_elems).to(self.device)
-
-    #                 output = self.essay_feedback(encoded_text)
-    #                 msk = (labels != -1)
-    #                 output = output[msk]
-    #                 labels = labels[msk]
-    #                 loss = F.cross_entropy(output, labels)
-
-    #                 optimizer.zero_grad()
-    #                 loss.backward()
-    #                 torch.nn.utils.clip_grad_norm_(self.essay_feedback.parameters(), 1.0)
-    #                 optimizer.step()
-
-    #                 loss = loss.item()
-    #                 running_loss.append(loss)
-    #                 timestamps.append(time.time())
-    #                 metrics = {'Train Loss': loss}
-                    
-    #                 if step % args.eval_interval == 0:
-    #                     eval_metrics = self.eval(val_dataset, args, n_samples=(args.batches_per_eval * args.batch_size))
-    #                     metrics.update(eval_metrics)
-    #                     print(f'Step {step}:\t{eval_metrics}')
-
-    #                 if args.wandb:
-    #                     wandb.log(metrics)
-
-    #                 if step % args.print_interval == 0:
-    #                     print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
-    #                         f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
-            
-                    
+    def encode(self, d_elems_text):
+        return self.d_elem_encoder.encode(d_elems_text)
 
     def train(self, train_dataset, val_dataset, args):
         dataloader = DataLoader(train_dataset,
@@ -202,3 +145,51 @@ class ClassificationModel(Model):
             confusion_matrix = wandb.plot.confusion_matrix(y_true=labels, preds=preds, class_names=argument_names)
             metrics.update({'Confusion Matrix': confusion_matrix})
         return metrics
+
+    # def train(self, train_dataset, val_dataset, args):
+    #     with Mode(self.essay_feedback, mode='train'):
+    #         optimizer = torch.optim.AdamW(self.essay_feedback.parameters(), lr=args.lr)
+
+    #         running_loss = deque(maxlen=args.print_interval)
+    #         timestamps = deque(maxlen=args.print_interval)
+    #         step = 0
+
+    #         for epoch in range(1, args.epochs + 1):
+    #             print(f'Starting Epoch {epoch}')
+    #             for essay in train_dataset:
+    #                 pstrings = essay.random_pstrings()
+    #                 labels = get_labels(pstrings, essay, num_d_elems=self.max_d_elems)
+    #                 labels = torch.LongTensor(labels).to(self.device)
+    #                 d_elems = get_discourse_elements(essay.text, pstrings)
+    #                 with torch.no_grad():
+    #                     encoded_text = self.encode(d_elems).to(self.device)
+
+    #                 output = self.essay_feedback(encoded_text)
+    #                 msk = (labels != -1)
+    #                 output = output[msk]
+    #                 labels = labels[msk]
+    #                 loss = F.cross_entropy(output, labels)
+
+    #                 optimizer.zero_grad()
+    #                 loss.backward()
+    #                 torch.nn.utils.clip_grad_norm_(self.essay_feedback.parameters(), 1.0)
+    #                 optimizer.step()
+
+    #                 loss = loss.item()
+    #                 running_loss.append(loss)
+    #                 timestamps.append(time.time())
+    #                 metrics = {'Train Loss': loss}
+                    
+    #                 if step % args.eval_interval == 0:
+    #                     eval_metrics = self.eval(val_dataset, args, n_samples=(args.batches_per_eval * args.batch_size))
+    #                     metrics.update(eval_metrics)
+    #                     print(f'Step {step}:\t{eval_metrics}')
+
+    #                 if args.wandb:
+    #                     wandb.log(metrics)
+
+    #                 if step % args.print_interval == 0:
+    #                     print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
+    #                         f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
+            
+                    

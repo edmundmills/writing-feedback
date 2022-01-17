@@ -27,6 +27,14 @@ class NERTokenizer:
                                              return_attention_mask=True,
                                              is_split_into_words=True,
                                              )
+        word_ids = tokenized.word_ids()
+        word_id_tensor = torch.LongTensor(
+            [word_id if word_id is not None else -1 for word_id in word_ids]
+        ).unsqueeze(0)
+        tokenized = {'input_ids': tokenized['input_ids'],
+                     'attention_mask': tokenized['attention_mask'],
+                     'word_ids': word_ids,
+                     'word_id_tensor': word_id_tensor}
         return tokenized
 
 

@@ -3,6 +3,13 @@ import torch.nn as nn
 from utils.networks import *
 
 
+def test_positional_encoding():
+    pos_encoder = PositionalEncoder(32)
+    input_tokens = torch.rand(20, 768)
+    pos_encoded = pos_encoder(input_tokens)
+    assert(pos_encoded.size() == input_tokens.size())
+
+
 class TestMode:
     def test_on(self):
         module = nn.Linear(4,5)

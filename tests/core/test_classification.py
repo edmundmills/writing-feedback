@@ -1,10 +1,5 @@
 from core.classification import *
 
-def test_positional_encoding():
-    pos_encoder = PositionalEncoder(32)
-    input_tokens = torch.rand(20, 768)
-    pos_encoded = pos_encoder(input_tokens)
-    assert(pos_encoded.size() == input_tokens.size())
 
 class TestClassificationModel:
     def test_encode(self, kls_args, d_elem_encoder, essay):
@@ -13,8 +8,8 @@ class TestClassificationModel:
         encoded_essay = essay_model.encode(d_elems)
         assert(encoded_essay.size() == (kls_args.max_discourse_elements, 769))
 
-    def test_inference(self, kls_model, essay):
-        preds = kls_model.inference(essay.text, essay.pstrings)
-        assert(preds.size() == (1, 32, 8))
-        assert(round(torch.sum(preds[:,0,:]).item()) == 1)
-        assert(round(torch.sum(preds).item()) == 32)
+#     def test_inference(self, kls_model, essay):
+#         preds = kls_model.inference(essay.text, essay.pstrings)
+#         assert(preds.size() == (1, 32, 8))
+#         assert(round(torch.sum(preds[:,0,:]).item()) == 1)
+#         assert(round(torch.sum(preds).item()) == 32)

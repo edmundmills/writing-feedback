@@ -170,7 +170,7 @@ class EssayDataset:
             encoded = tokenizer.encode(essay.text)
             input_ids.append(encoded['input_ids'])
             attention_masks.append(encoded['attention_mask'])
-            word_ids = encoded.word_ids()
+            word_ids = encoded['word_ids']
             label_tokens = to_tokens(essay.correct_predictions, tokenizer.max_tokens)
             def get_label(word_idx, label_tokens):
                 if word_idx is None:

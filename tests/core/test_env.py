@@ -28,8 +28,8 @@ class TestWordwiseEnv:
         assert(not done)
 
     def test_make_vec(self, base_args, ner_tokenizer, dataset, d_elem_tokenizer):
-        env = WordwiseEnv.make_vec(4, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
-        assert(len(env.get_attr('done')) == 4)
+        env = WordwiseEnv.make_vec(2, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
+        assert(len(env.get_attr('done')) == 2)
         assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
         make_agent(base_args, env)
 
@@ -53,8 +53,8 @@ class TestSequencewiseEnv:
         assert(not done)
 
     def test_make_vec(self, ner_tokenizer, dataset, d_elem_tokenizer, base_args):
-        env = SequencewiseEnv.make_vec(4, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
-        assert(len(env.get_attr('done')) == 4)
+        env = SequencewiseEnv.make_vec(2, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
+        assert(len(env.get_attr('done')) == 2)
         assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
         make_agent(base_args, env)
 

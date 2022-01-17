@@ -18,6 +18,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
+max_d_elems = 32
 encoded_sentence_length = 768
 encoded_essay_length = 1024
 
@@ -74,7 +75,7 @@ def prediction():
 
 class DElemEncoder:
     def encode(self, sentences: List[str]):
-        return torch.rand(len(sentences), encoded_sentence_length)
+        return torch.rand(max_d_elems, encoded_sentence_length + 1)
 
 
 class NERTokenized:
@@ -101,7 +102,12 @@ class NERTokenizer:
     def encode(self, text:str):
         encoded_text = torch.LongTensor(list(range(encoded_essay_length))).unsqueeze(0)
         attention_mask = torch.ones(1, encoded_essay_length, dtype=torch.uint8)
-        return NERTokenized(encoded_text, attention_mask)
+        word_ids = list(range(encoded_text.size(1)))
+        word_id_tensor = torch.LongTensor(
+            [word_id if word_id is not None else -1 for word_id in word_ids]
+        ).unsqueeze(0)
+        return {'word_ids': word_ids, 'input_ids': encoded_text,
+                'attention_mask': attention_mask, 'word_id_tensor': word_id_tensor}
 
 @pytest.fixture
 def d_elem_tokenizer():

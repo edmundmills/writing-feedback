@@ -7,6 +7,8 @@ class TestEncode:
         tokenized = tokenizer.encode(essay.text)
         assert(tokenized['input_ids'].size() == (1, 1024))
         assert(tokenized['attention_mask'].size() == (1, 1024))
+        assert(len(tokenized['word_ids']) == 1024)
+        assert(tokenized['word_id_tensor'].size() == (1,1024))
 
 
 class TestSegmentationModel:

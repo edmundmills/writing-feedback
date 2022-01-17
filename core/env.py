@@ -14,7 +14,7 @@ from utils.grading import to_tokens
 
 
 class SegmentationEnv(gym.Env):
-    def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, args) -> None:
+    def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
         super().__init__()
         self.dataset = essay_dataset
         self.word_tokenizer = word_tokenizer
@@ -24,6 +24,9 @@ class SegmentationEnv(gym.Env):
         self.encoded_essay_text = None
         self.done = None
         self.max_words = word_tokenizer.max_tokens
+        self.essay_tokens_space = spaces.Box(low=0, high=100000,
+                                             shape=(3, self.max_words),
+                                             dtype=np.int32)
     
     @classmethod
     def make_vec(cls, n_envs, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args):
@@ -71,9 +74,10 @@ class SegmentationEnv(gym.Env):
         encoded = self.word_tokenizer.encode(self.essay.text)
         self.encoded_essay_text = encoded['input_ids']
         self.attention_mask = encoded['attention_mask']
-        self.word_ids = encoded.word_ids()
+        self.word_id_tensor = encoded['word_id_tensor']
         self.essay_tokens = torch.cat((self.encoded_essay_text,
-                                         self.attention_mask), dim=0).numpy()
+                                       self.attention_mask,
+                                       self.word_id_tensor), dim=0).numpy()
         return self.state
 
 
@@ -84,7 +88,7 @@ class WordwiseEnv(SegmentationEnv):
         self.action_space = spaces.MultiDiscrete(
             [2] + [2] * self.max_words + [len(argument_names)] * self.max_d_elems)
         self.observation_space = spaces.Dict({
-            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words)),
+            'essay_tokens': self.essay_tokens_space,
             'prev_segmentation': spaces.Box(low=0, high=1, shape=(self.max_words,)),
             'prev_d_elem_tokens': spaces.Box(
                 low=0, high=100000,
@@ -123,7 +127,7 @@ class SequencewiseEnv(SegmentationEnv):
         super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, args)
         self.action_space = spaces.Discrete(args.action_space_dim)
         self.observation_space = spaces.Dict({
-            'essay_tokens': spaces.Box(low=0, high=100000, shape=(2, self.max_words), dtype=np.int32),
+            'essay_tokens': self.essay_tokens_space,
             'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
         })
 
