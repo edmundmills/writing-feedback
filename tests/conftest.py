@@ -102,7 +102,7 @@ class NERTokenizer:
     def encode(self, text:str):
         encoded_text = torch.LongTensor(list(range(encoded_essay_length))).unsqueeze(0)
         attention_mask = torch.ones(1, encoded_essay_length, dtype=torch.uint8)
-        word_ids = list(range(encoded_text.size(1)))
+        word_ids = list(range(-1, encoded_text.size(1) - 1))
         word_id_tensor = torch.LongTensor(
             [word_id if word_id is not None else -1 for word_id in word_ids]
         ).unsqueeze(0)

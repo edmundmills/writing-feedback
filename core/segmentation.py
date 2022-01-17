@@ -55,7 +55,6 @@ class SeqwiseFeatures(BaseFeaturesExtractor):
             elif key == 'pred_tokens':
                 self.extractors[key] = nn.Flatten()
 
-
     def forward(self, observations) -> torch.Tensor:
         encoded_tensor_list = []
         for key, extractor in self.extractors.items():

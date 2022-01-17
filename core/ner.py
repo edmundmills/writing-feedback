@@ -54,14 +54,24 @@ class NERModel(Model):
 
     def split_essay_tokens(self, essay_tokens):
         essay_tokens = essay_tokens.long()
-        input_ids, attention_mask = torch.chunk(essay_tokens, 2, dim=-2)
+        input_ids, attention_mask, word_ids = torch.chunk(essay_tokens, 3, dim=-2)
         input_ids = input_ids.squeeze(-2)
         attention_mask = attention_mask.squeeze(-2)
-        return input_ids, attention_mask
+        word_ids = word_ids.squeeze(-2)
+        return input_ids, attention_mask, word_ids
+
+    def collate_word_idxs(self, probs, word_ids):
+        *_, n_essays, n_tokens = probs.size()
+        range_tensor = torch.arange(n_tokens, device=probs.device)
+        range_tensor = range_tensor.repeat(n_essays, 1)
+        word_idxs = range_tensor + range_tensor - word_ids - 1
+        msk = torch.le(word_idxs, 2 + torch.max(word_ids, dim=-1, keepdim=True).values)
+        probs = torch.gather(probs, dim=-1, index=word_idxs*msk)*msk
+        return probs
 
     def forward(self, input_ids, attention_mask=None):
         if self.feature_extractor:
-            input_ids, attention_mask = self.split_essay_tokens(input_ids)
+            input_ids, attention_mask, word_ids = self.split_essay_tokens(input_ids)
             with torch.no_grad():
                 self.eval()
                 encoded = self.transformer(input_ids, attention_mask=attention_mask)
@@ -70,6 +80,7 @@ class NERModel(Model):
             _, output = torch.chunk(output, 2, dim=-1)
             output = output.squeeze(-1)
             output = output * attention_mask - (1 - attention_mask)
+            output = self.collate_word_idxs(output, word_ids)
         else:
             encoded = self.transformer(input_ids, attention_mask=attention_mask)
             output = self.classifier(encoded.last_hidden_state)

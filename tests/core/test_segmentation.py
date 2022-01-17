@@ -8,7 +8,8 @@ class TestNERModel:
         model = NERModel(base_args.ner, feature_extractor=True)
         encoded_text = encoded_essay['input_ids']
         attention_mask = encoded_essay['attention_mask']
-        x = torch.stack((encoded_text, attention_mask), dim=1).to(model.device)
+        word_ids = encoded_essay['word_id_tensor']
+        x = torch.stack((encoded_text, attention_mask, word_ids), dim=1).to(model.device)
         output = model(x)
         assert(output.size() == (1, base_args.ner.essay_max_tokens))
 

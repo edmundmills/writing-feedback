@@ -24,7 +24,7 @@ class SegmentationEnv(gym.Env):
         self.encoded_essay_text = None
         self.done = None
         self.max_words = word_tokenizer.max_tokens
-        self.essay_tokens_space = spaces.Box(low=0, high=100000,
+        self.essay_tokens_space = spaces.Box(low=-1, high=100000,
                                              shape=(3, self.max_words),
                                              dtype=np.int32)
     
@@ -32,7 +32,6 @@ class SegmentationEnv(gym.Env):
     def make_vec(cls, n_envs, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args):
         print('Making Vectorized Environment')
         dataset_fracs = [1 / n_envs] * n_envs
-        print(dataset_fracs)
         datasets = essay_dataset.split(dataset_fracs)
         def make_env(dataset):
             def _init():
