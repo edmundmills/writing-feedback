@@ -87,7 +87,7 @@ def make_agent(base_args, env):
     return PPO("MultiInputPolicy", env,
                policy_kwargs=policy_kwargs,
                verbose=base_args.seg.sb3_verbosity,
-               tensorboard_log=f"./log/{log_dir}/",
+               tensorboard_log=f"log/{log_dir}/",
                n_steps=seg_args.n_steps,
                batch_size=seg_args.batch_size,
                )

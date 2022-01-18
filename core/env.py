@@ -51,7 +51,7 @@ class SegmentationEnv(gym.Env):
                 return env
             return _init
         venv = SubprocVecEnv([make_env(ds) for ds in datasets])
-        venv = VecMonitor(venv, filename='./log/test')
+        venv = VecMonitor(venv, filename=f'./log/test')
         print('Vectorized env created')
         return venv
 
