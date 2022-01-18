@@ -161,7 +161,7 @@ class EssayDataset:
         print(f'Argument Classification Dataset Created with {len(text)} samples.')
         return ClassificationDataset(text, labels)
 
-    def make_ner_dataset(self, tokenizer) -> TensorDataset:
+    def make_ner_dataset(self, tokenizer, seg_only=False) -> TensorDataset:
         print('Making NER Dataset')
         input_ids = []
         attention_masks = []
@@ -171,7 +171,8 @@ class EssayDataset:
             input_ids.append(encoded['input_ids'])
             attention_masks.append(encoded['attention_mask'])
             word_ids = encoded['word_ids']
-            label_tokens = to_tokens(essay.correct_predictions, tokenizer.max_tokens)
+            label_tokens = to_tokens(essay.correct_predictions, tokenizer.max_tokens,
+                                     seg_only=seg_only)
             def get_label(word_idx, label_tokens):
                 if word_idx is None:
                     return -1

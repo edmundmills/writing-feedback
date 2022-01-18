@@ -53,11 +53,17 @@ def get_labels(pstrings, essay, num_d_elems=None):
         labels = labels[:num_d_elems] + [-1] * max(0, num_d_elems - len(labels))
     return labels
 
-def to_tokens(predictions, num_words):
+def to_tokens(predictions, num_words, seg_only=False):
     tokens = []
     for pred in predictions:
-        tokens.append(1)
-        tokens.extend([0] * (len(pred.word_idxs) - 1))
+        if seg_only:
+            start_token = 1
+            cont_token = 0
+        else:
+            start_token = pred.label
+            cont_token = pred.label + 7
+        tokens.append(start_token)
+        tokens.extend([cont_token] * (len(pred.word_idxs) - 1))
     while len(tokens) < num_words:
         tokens.append(-1)
     return np.array(tokens[:num_words], dtype=np.int8)

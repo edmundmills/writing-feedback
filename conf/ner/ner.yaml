@@ -1,13 +1,15 @@
 name: ner
 
+segmentation_only: False
+
 essay_max_tokens: 1024
 
 linear_layers: 3
 linear_layer_size: 512
 
 
-lr: 2e-5
-epochs: 3
+learning_rates: [2.5e-5, 2.5e-5, 2.5e-6, 2.5e-6, 2.5e-7]
+epochs: 5
 batch_size: 1
 grad_accumulation: 32
 max_grad_norm: 10

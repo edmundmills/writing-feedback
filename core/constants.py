@@ -16,3 +16,21 @@ argument_types = {
         }
 
 argument_names = [k for k, _ in sorted(argument_types.items(), key=lambda x : x[1])]
+
+ner_token_names = [
+    'None',
+    'Lead (start)',
+    'Position (start)',
+    'Claim (start)',
+    'Counterclaim (start)',
+    'Rebuttal (start)',
+    'Evidence (start)',
+    'Concluding Statement (start)',
+    'Lead (cont)',
+    'Position (cont)',
+    'Claim (cont)',
+    'Counterclaim (cont)',
+    'Rebuttal (cont)',
+    'Evidence (cont)',
+    'Concluding Statement (cont)',
+]

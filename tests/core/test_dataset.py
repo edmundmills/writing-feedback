@@ -76,6 +76,30 @@ class TestEssayDataset:
         assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
         assert(essay_feedback_dataset[0][1].size() == (1024,))
         assert(isinstance(essay_feedback_dataset[0][2], torch.Tensor))
+        assert(essay_feedback_dataset[0][2].size() == (1024,))
+        assert(essay_feedback_dataset[0][2].max().item() == 1)
+        assert(essay_feedback_dataset[0][2].min().item() == -1)
+
+    def test_make_ner_seg_dataset(self, fix_seed, dataset, ner_tokenizer):
+        essay_feedback_dataset = dataset.make_ner_dataset(tokenizer=ner_tokenizer,
+                                                          seg_only=True)
+        assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
+        assert(essay_feedback_dataset[0][0].size() == (1024,))
+        assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
+        assert(essay_feedback_dataset[0][1].size() == (1024,))
+        assert(isinstance(essay_feedback_dataset[0][2], torch.Tensor))
+        assert(essay_feedback_dataset[0][2].size() == (1024,))
+        assert(essay_feedback_dataset[0][2].max().item() <= 15)
+        assert(essay_feedback_dataset[0][2].min().item() == -1)
+
+    def test_make_ner_dataset(self, fix_seed, dataset, ner_tokenizer):
+        essay_feedback_dataset = dataset.make_ner_dataset(tokenizer=ner_tokenizer,
+                                                          seg_only=False)
+        assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
+        assert(essay_feedback_dataset[0][0].size() == (1024,))
+        assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
+        assert(essay_feedback_dataset[0][1].size() == (1024,))
+        assert(isinstance(essay_feedback_dataset[0][2], torch.Tensor))
         assert(essay_feedback_dataset[0][1].size() == (1024,))
 
     def test_make_essay_feedback_dataset(self, fix_seed, dataset, kls_model):

@@ -12,13 +12,23 @@ class TestEncode:
 
 
 class TestNERModel:
-    def test_forward_ner(self, encoded_essay, ner_args):
+    def test_forward_ner_seg_only(self, encoded_essay, ner_args):
+        ner_args.segmentation_only = True
         model = NERModel(ner_args)
         encoded_text = encoded_essay['input_ids']
         attention_mask = encoded_essay['attention_mask']
         output = model(encoded_text.to(model.device),
                        attention_mask.to(model.device))
         assert(output.size() == (1, ner_args.essay_max_tokens, 2))
+
+    def test_forward_ner(self, encoded_essay, ner_args):
+        ner_args.segmentation_only = False
+        model = NERModel(ner_args)
+        encoded_text = encoded_essay['input_ids']
+        attention_mask = encoded_essay['attention_mask']
+        output = model(encoded_text.to(model.device),
+                       attention_mask.to(model.device))
+        assert(output.size() == (1, ner_args.essay_max_tokens, 15))
 
     def test_collate_word_idxs(self, ner_args):
         model = NERModel(ner_args)

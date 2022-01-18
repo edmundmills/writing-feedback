@@ -7,10 +7,17 @@ from utils.grading import *
 class TestPstringsToTokens:
     def test_valid(self, prediction):
         length = 50
-        tokens = to_tokens([prediction], length)
-        print(tokens)
+        tokens = to_tokens([prediction], length, seg_only=True)
         assert(len(tokens) == length)
         assert(set(tokens) == set((-1, 0, 1)))
+
+    def test_valid(self, prediction):
+        length = 50
+        tokens = to_tokens([prediction], length, seg_only=False)
+        assert(len(tokens) == length)
+        assert(min(tokens) == -1)
+        assert(max(tokens) <= 15)
+        assert(max(tokens) >= 8)
 
 
 class TestPredictionString:

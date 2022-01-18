@@ -5,14 +5,14 @@ import random
 import transformers
 import torch
 
-from core.segmentation import NERModel, NERTokenizer
+from core.ner import NERModel, NERTokenizer
 from core.dataset import EssayDataset
 
 from utils.config import parse_args, get_config, WandBRun
 
 if __name__ == '__main__':
     args = parse_args()
-    args = get_config('ner', args)
+    args = get_config('base', args)
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
@@ -35,8 +35,8 @@ if __name__ == '__main__':
 
     tokenizer = NERTokenizer(args.ner)
 
-    train = train.make_ner_dataset(tokenizer)
-    val = val.make_ner_dataset(tokenizer)
+    train = train.make_ner_dataset(tokenizer, seg_only=args.ner.segmentation_only)
+    val = val.make_ner_dataset(tokenizer, seg_only=args.ner.segmentation_only)
 
     model = NERModel(args.ner)
 
