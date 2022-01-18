@@ -3,8 +3,13 @@ name: segmentation
 train_ner_model: False
 ner_model_name: firm-monkey-1
 
-train_steps: 1e6
-envs: 16
+layer_size: 512
+n_layers: 3
+
+total_timesteps: 1e6
+n_steps: 32
+batch_size: 32
+n_envs: 16
 
 save_model: True
 sync_tensorboard: True

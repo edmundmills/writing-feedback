@@ -8,7 +8,7 @@ from wandb.integration.sb3 import WandbCallback
 
 from core.d_elems import DElemTokenizer
 from core.dataset import EssayDataset
-from core.env import DividerEnv, SequencewiseEnv, SplitterEnv
+from core.env import SegmentationEnv
 from core.ner import NERTokenizer
 from core.segmentation import make_agent
 from utils.config import parse_args, get_config, WandBRun
@@ -27,8 +27,9 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(args.seed)
 
     if args.debug:
-        dataset = EssayDataset(n_essays=2)
-        args.seg.train_steps = 100
+        dataset = EssayDataset(n_essays=3)
+        args.seg.total_timesteps = 1024
+        args.seg.n_envs = 2
     else:
         dataset = EssayDataset()
 
@@ -36,14 +37,12 @@ if __name__ == '__main__':
 
     ner_tokenizer = NERTokenizer(args.ner)
     d_elem_tokenizer = DElemTokenizer(args.kls)
-    env = SplitterEnv.make_vec(32, train, ner_tokenizer, d_elem_tokenizer, args.env)
+    env = SegmentationEnv.make(args.seg.n_envs, train, ner_tokenizer, d_elem_tokenizer, args.env)
  
     with WandBRun(args):
         agent = make_agent(args, env)
         if args.wandb:
-            callback = WandbCallback(
-                gradient_save_freq=100,
-                verbose=2)
+            callback = WandbCallback(verbose=args.seg.sb3_verbosity)
         else:
             callback = None
-        agent.learn(total_timesteps=1000000, callback=callback)
+        agent.learn(total_timesteps=args.seg.total_timesteps, callback=callback)

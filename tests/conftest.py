@@ -155,14 +155,28 @@ def assign_env():
     return AssigmentEnv(n_essays=10)
 
 @pytest.fixture
+def splitter_args():
+    args = get_config('base', args=['env=splitter'])
+    env_args = args.env
+    env_args.n_envs = 1
+    return env_args
+
+@pytest.fixture
 def splitter_env():
     dataset = EssayDataset(n_essays=10)
     encoder = NERTokenizer()
-    args = get_config('base', args=['env=seqwise'])
+    args = get_config('base', args=['env=splitter'])
     args.kls.num_attention_layers = 1
     d_elem_tokenizer = DElemTokenizer(args.kls)
     env = SplitterEnv(dataset, encoder, d_elem_tokenizer, args.env)
     return env
+
+@pytest.fixture
+def seqwise_args():
+    args = get_config('base', args=['env=seqwise'])
+    env_args = args.env
+    env_args.n_envs = 1
+    return env_args
 
 @pytest.fixture
 def seq_env():
@@ -174,6 +188,12 @@ def seq_env():
     env = SequencewiseEnv(dataset, encoder, d_elem_tokenizer, args.env)
     return env
 
+@pytest.fixture
+def divider_args():
+    args = get_config('base', args=['env=divider'])
+    env_args = args.env
+    env_args.n_envs = 1
+    return env_args
 
 @pytest.fixture
 def divider_env():
@@ -184,6 +204,13 @@ def divider_env():
     d_elem_tokenizer = DElemTokenizer(args.kls)
     env = DividerEnv(dataset, encoder, d_elem_tokenizer, args.env)
     return env
+
+@pytest.fixture
+def wordwise_args():
+    args = get_config('base', args=['env=wordwise'])
+    env_args = args.env
+    env_args.n_envs = 1
+    return env_args
 
 @pytest.fixture
 def word_env():

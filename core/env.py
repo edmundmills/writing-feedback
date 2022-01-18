@@ -13,6 +13,15 @@ from utils.text import to_sentences
 from utils.grading import to_tokens
 
 
+env_classes = {}
+
+def register_env(cls):
+    env_classes.update({cls.__name__: cls})
+    def wrapper(*args, **kwargs):
+        return cls(*args, **kwargs)
+    return wrapper
+
+
 class SegmentationEnv(gym.Env):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
         super().__init__()
@@ -28,15 +37,17 @@ class SegmentationEnv(gym.Env):
                                              shape=(3, self.max_words),
                                              dtype=np.int32)
     
-    @classmethod
-    def make_vec(cls, n_envs, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args):
-        print('Making Vectorized Environment')
+    @staticmethod
+    def make(n_envs, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args):
+        cls = env_classes[env_args.class_name]
+        if n_envs == 1:
+            return cls(essay_dataset, word_tokenizer, d_elem_tokenizer, env_args)
+        print(f'Making Vectorized {cls.__name__} Environment')
         dataset_fracs = [1 / n_envs] * n_envs
         datasets = essay_dataset.split(dataset_fracs)
         def make_env(dataset):
             def _init():
                 env = cls(dataset, word_tokenizer, d_elem_tokenizer, env_args)
-
                 return env
             return _init
         venv = SubprocVecEnv([make_env(ds) for ds in datasets])
@@ -77,6 +88,7 @@ class SegmentationEnv(gym.Env):
         self.essay_tokens = torch.cat((self.encoded_essay_text,
                                        self.attention_mask,
                                        self.word_id_tensor), dim=0).numpy()
+        self.env_init_value = self.current_state_value()
         return self.state
 
     def pred_tokens_to_preds(self):
@@ -92,6 +104,7 @@ class SegmentationEnv(gym.Env):
         return preds              
 
 
+@register_env
 class SplitterEnv(SegmentationEnv):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
         super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, env_args)
@@ -138,7 +151,7 @@ class SplitterEnv(SegmentationEnv):
         return self.state, reward, self.done, info
 
 
-
+@register_env
 class DividerEnv(SegmentationEnv):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
         super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, env_args)
@@ -189,6 +202,7 @@ class DividerEnv(SegmentationEnv):
         return preds
 
 
+@register_env
 class WordwiseEnv(SegmentationEnv):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
         super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, env_args)
@@ -230,6 +244,7 @@ class WordwiseEnv(SegmentationEnv):
         return super().reset()
 
 
+@register_env
 class SequencewiseEnv(SegmentationEnv):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, args) -> None:
         super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, args)

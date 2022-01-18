@@ -1,3 +1,4 @@
+from git import base
 import gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
@@ -9,7 +10,16 @@ from core.d_elems import DElemEncoder
 from core.classification import ClassificationModel
 from core.ner import NERModel
 
+extractors = {}
 
+def register_extractor(cls):
+    extractors.update({cls.__name__: cls})
+    def wrapper(*args, **kwargs):
+        return cls(*args, **kwargs)
+    return wrapper
+
+
+@register_extractor
 class WordwiseFeatures(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
         feature_dim = args.ner.essay_max_tokens * 2
@@ -37,6 +47,7 @@ class WordwiseFeatures(BaseFeaturesExtractor):
         return output
 
 
+@register_extractor
 class SeqwiseFeatures(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
         feature_dim = args.ner.essay_max_tokens * 2
@@ -63,16 +74,20 @@ class SeqwiseFeatures(BaseFeaturesExtractor):
 
 
 def make_agent(base_args, env):
+    seg_args = base_args.seg
+    extractor_class = extractors[base_args.env.feature_extractor]
     policy_kwargs = dict(
-        features_extractor_class=SeqwiseFeatures,
+        features_extractor_class=extractor_class,
         features_extractor_kwargs=dict(args=base_args),
         activation_fn=nn.ReLU,
-        net_arch=[1024, dict(pi=[1024], vf=[1024])]
+        net_arch=[dict(pi=[seg_args.layer_size]*seg_args.n_layers,
+                       vf=[seg_args.layer_size]*seg_args.n_layers)]
     )
-
     log_dir = wandb.run.name if base_args.wandb else 'test'
     return PPO("MultiInputPolicy", env,
                policy_kwargs=policy_kwargs,
                verbose=base_args.seg.sb3_verbosity,
                tensorboard_log=f"./log/{log_dir}/",
-               n_steps=256)
+               n_steps=seg_args.n_steps,
+               batch_size=seg_args.batch_size,
+               )

@@ -32,7 +32,7 @@ class WandBRun:
         self.args = args
 
     def __enter__(self):
-        project = self.args.name
+        project = 'writing-feedback'
         if self.args.debug:
             project += '-debug'
         tensorboard = OmegaConf.select(self.args, "sync_tensorboard",
