@@ -50,7 +50,7 @@ class WordwiseFeatures(BaseFeaturesExtractor):
 @register_extractor
 class SeqwiseFeatures(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
-        feature_dim = args.ner.essay_max_tokens * 2
+        feature_dim = args.ner.essay_max_tokens * 16
         super().__init__(observation_space, features_dim=feature_dim)
         device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 

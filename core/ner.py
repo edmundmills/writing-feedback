@@ -45,9 +45,10 @@ class NERModel(Model):
         print('Loading NERModel')
         self.transformer = LongformerModel.from_pretrained(
             'allenai/longformer-base-4096').to(self.device)
-        n_outputs = 2 if args.segmentation_only else 15
+        self.seg_only = args.segmentation_only
+        self.n_outputs = 2 if args.segmentation_only else 15
         self.classifier = MLP(768,
-                              n_outputs,
+                              self.n_outputs,
                               args.linear_layers,
                               args.linear_layer_size,
                               dropout=0.1).to(self.device)
@@ -62,12 +63,14 @@ class NERModel(Model):
         return input_ids, attention_mask, word_ids
 
     def collate_word_idxs(self, probs, word_ids):
-        *_, n_essays, n_tokens = probs.size()
+        *_, n_essays, n_tokens, n_categories = probs.size()
         range_tensor = torch.arange(n_tokens, device=probs.device)
         range_tensor = range_tensor.repeat(n_essays, 1)
         word_idxs = range_tensor + range_tensor - word_ids - 1
         msk = torch.le(word_idxs, 2 + torch.max(word_ids, dim=-1, keepdim=True).values)
-        probs = torch.gather(probs, dim=-1, index=word_idxs*msk)*msk
+        msk = msk.unsqueeze(-1).repeat(1,1,n_categories)
+        word_idxs = word_idxs.unsqueeze(-1).repeat(1,1,n_categories)
+        probs = torch.gather(probs, dim=-2, index=word_idxs*msk)*msk
         return probs
 
     def forward(self, input_ids, attention_mask=None):
@@ -78,10 +81,12 @@ class NERModel(Model):
                 encoded = self.transformer(input_ids, attention_mask=attention_mask)
                 output = self.classifier(encoded.last_hidden_state)
             output = F.softmax(output, dim=-1)
-            _, output = torch.chunk(output, 2, dim=-1)
-            output = output.squeeze(-1)
+            attention_mask = attention_mask.unsqueeze(-1).repeat(1,1,output.size(-1))
             output = output * attention_mask - (1 - attention_mask)
             output = self.collate_word_idxs(output, word_ids)
+            if self.seg_only:
+                _, output = torch.chunk(output, 2, dim=-1)
+            output = output.flatten(start_dim=1)
         else:
             encoded = self.transformer(input_ids, attention_mask=attention_mask)
             output = self.classifier(encoded.last_hidden_state)

@@ -1,6 +1,6 @@
 name: ner
 
-segmentation_only: False
+segmentation_only: True
 
 essay_max_tokens: 1024
 
