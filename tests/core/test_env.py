@@ -1,13 +1,34 @@
 import pytest
 
 from stable_baselines3.common.env_checker import check_env
-from torch import div
 
 from core.env import *
 from core.dataset import Essay
 from core.segmentation import make_agent
 
 
+class TestSplitterEnv:
+    def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, base_args):
+        env = SplitterEnv(dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
+        assert(isinstance(env, SplitterEnv))
+        check_env(env)
+
+    def test_reset(self, splitter_env):
+        state = splitter_env.reset()
+        assert(isinstance(state, dict))
+        assert(not splitter_env.done)
+    
+    def test_act(self, splitter_env):
+        splitter_env.reset()
+        init_preds = splitter_env.pred_tokens_to_preds()
+        state, reward, done, info = splitter_env.step(100)
+        preds = splitter_env.pred_tokens_to_preds()
+        assert(len(init_preds) == 1)
+        assert(len(preds) == 2)
+        assert(isinstance(state, dict))
+        assert(isinstance(preds[0], Prediction))
+        assert(isinstance(reward, float))
+        assert(not done)
 
 
 class TestDividerEnv:
@@ -49,12 +70,6 @@ class TestDividerEnv:
     #     state, reward, done, info = divider_env.step(action)
     #     assert(done)
 
-    def test_make_vec(self, base_args, ner_tokenizer, dataset, d_elem_tokenizer):
-        env = DividerEnv.make_vec(2, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
-        assert(len(env.get_attr('done')) == 2)
-        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
-        make_agent(base_args, env)
-
 
 class TestWordwiseEnv:
     def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, base_args):
@@ -74,12 +89,6 @@ class TestWordwiseEnv:
         assert(isinstance(state, dict))
         assert(isinstance(reward, float))
         assert(not done)
-
-    def test_make_vec(self, base_args, ner_tokenizer, dataset, d_elem_tokenizer):
-        env = WordwiseEnv.make_vec(2, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
-        assert(len(env.get_attr('done')) == 2)
-        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
-        make_agent(base_args, env)
 
 
 class TestSequencewiseEnv:

@@ -77,8 +77,66 @@ class SegmentationEnv(gym.Env):
         self.essay_tokens = torch.cat((self.encoded_essay_text,
                                        self.attention_mask,
                                        self.word_id_tensor), dim=0).numpy()
-        self.env_init_value = self.current_state_value()
         return self.state
+
+    def pred_tokens_to_preds(self):
+        start = 0
+        preds = []
+        for idx, x in enumerate(self.prediction_tokens[1:], start=1):
+            if x == -1:
+                preds.append(Prediction(start, idx - 1, -1, self.essay.essay_id))
+                break
+            elif x == 1:
+                preds.append(Prediction(start, idx, -1, self.essay.essay_id))
+                start = idx + 1
+        return preds              
+
+
+class SplitterEnv(SegmentationEnv):
+    def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, env_args) -> None:
+        super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, env_args)
+        self.splits = np.zeros(self.max_words, dtype=np.int8)
+        self.action_space = spaces.Discrete(self.max_words)
+        self.observation_space = spaces.Dict({
+            'essay_tokens': self.essay_tokens_space,
+            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
+        })
+
+    @property
+    def state(self):
+        state = {
+            'essay_tokens': self.essay_tokens,
+            'pred_tokens': self.prediction_tokens
+        }
+        return state
+
+    def reset(self):
+        super().reset()
+        self.essay_num_words = min(self.max_words, len(self.essay.words))
+        self.splits = np.concatenate((
+            np.zeros(self.essay_num_words, dtype=np.int8),
+            -np.ones(self.max_words - self.essay_num_words, dtype=np.int8)))
+        self.splits[0] == 1
+        self.predictions = self.pred_tokens_to_preds()
+        self.env_init_value = self.current_state_value()
+        self.steps = 0
+        return self.state
+
+    @property
+    def prediction_tokens(self):
+        return self.splits
+
+    def step(self, action):
+        init_value = self.current_state_value()
+        self.steps += 1
+        if int(action) < self.essay_num_words - 1:
+            self.splits[int(action)] = 1
+            self.predictions = self.pred_tokens_to_preds()
+        self.done = (int(action) == self.max_words - 1) or self.steps >= self.max_d_elems - 1
+        reward = self.current_state_value() - init_value
+        info = {}
+        return self.state, reward, self.done, info
+
 
 
 class DividerEnv(SegmentationEnv):

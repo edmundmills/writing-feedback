@@ -5,10 +5,10 @@ import numpy as np
 from omegaconf import OmegaConf
 import pytest
 import torch
-from core.d_elems import DElemTokenizer
 
+from core.d_elems import DElemTokenizer
 from core.dataset import EssayDataset
-from core.env import AssigmentEnv, DividerEnv, SequencewiseEnv, WordwiseEnv
+from core.env import AssigmentEnv, DividerEnv, SequencewiseEnv, SplitterEnv, WordwiseEnv
 from core.essay import Prediction
 from core.classification import ClassificationModel
 from utils.config import get_config
@@ -155,13 +155,23 @@ def assign_env():
     return AssigmentEnv(n_essays=10)
 
 @pytest.fixture
+def splitter_env():
+    dataset = EssayDataset(n_essays=10)
+    encoder = NERTokenizer()
+    args = get_config('base', args=['env=seqwise'])
+    args.kls.num_attention_layers = 1
+    d_elem_tokenizer = DElemTokenizer(args.kls)
+    env = SplitterEnv(dataset, encoder, d_elem_tokenizer, args.env)
+    return env
+
+@pytest.fixture
 def seq_env():
     dataset = EssayDataset(n_essays=10)
     encoder = NERTokenizer()
     args = get_config('base', args=['env=seqwise'])
     args.kls.num_attention_layers = 1
-    kls_model = ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
-    env = SequencewiseEnv(dataset, encoder, kls_model, args.env)
+    d_elem_tokenizer = DElemTokenizer(args.kls)
+    env = SequencewiseEnv(dataset, encoder, d_elem_tokenizer, args.env)
     return env
 
 
@@ -171,8 +181,8 @@ def divider_env():
     encoder = NERTokenizer()
     args = get_config('base', args=['env=divider'])
     args.kls.num_attention_layers = 1
-    kls_model = ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
-    env = DividerEnv(dataset, encoder, kls_model, args.env)
+    d_elem_tokenizer = DElemTokenizer(args.kls)
+    env = DividerEnv(dataset, encoder, d_elem_tokenizer, args.env)
     return env
 
 @pytest.fixture
@@ -181,8 +191,8 @@ def word_env():
     dataset = EssayDataset(n_essays=10)
     encoder = NERTokenizer()
     args.kls.num_attention_layers = 1
-    kls_model = ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
-    env = WordwiseEnv(dataset, encoder, kls_model, args.env)
+    d_elem_tokenizer = DElemTokenizer(args.kls)
+    env = WordwiseEnv(dataset, encoder, d_elem_tokenizer, args.env)
     return env
 
 
