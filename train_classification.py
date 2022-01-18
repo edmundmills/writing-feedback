@@ -40,5 +40,5 @@ if __name__ == '__main__':
     val = val.make_essay_feedback_dataset(
         essay_model, randomize_segments=(not args.use_correct_segments))
 
-    with WandBRun(args):
+    with WandBRun(args, project_name='classification'):
         essay_model.train(train, val, args)

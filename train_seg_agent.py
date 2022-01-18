@@ -42,7 +42,7 @@ if __name__ == '__main__':
     d_elem_tokenizer = DElemTokenizer(args.kls)
     env = SegmentationEnv.make(args.seg.n_envs, train, ner_tokenizer, d_elem_tokenizer, args.env)
 
-    with WandBRun(args):
+    with WandBRun(args, project_name='segmentation'):
         agent = make_agent(args, env)
         if args.wandb:
             callback = WandbCallback(verbose=args.seg.sb3_verbosity)

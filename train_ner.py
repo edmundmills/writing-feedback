@@ -40,5 +40,5 @@ if __name__ == '__main__':
 
     model = NERModel(args.ner)
 
-    with WandBRun(args):
+    with WandBRun(args, project_name='ner'):
         model.train_ner(train, val, args)

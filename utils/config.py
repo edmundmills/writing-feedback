@@ -28,19 +28,19 @@ def flatten_args(args):
     return flatten(OmegaConf.to_container(args, resolve=True), reducer='dot')
 
 class WandBRun:
-    def __init__(self, args):
+    def __init__(self, args, project_name):
         self.args = args
+        self.project_name = project_name
 
     def __enter__(self):
-        project = 'writing-feedback'
         if self.args.debug:
-            project += '-debug'
+            self.project_name += '-debug'
         tensorboard = OmegaConf.select(self.args, "sync_tensorboard",
                                        default=False)
         if self.args.wandb:
             wandb.init(
                 entity='writing-feedback',
-                project=project,
+                project=self.project_name,
                 notes="",
                 sync_tensorboard=tensorboard,
                 config=flatten_args(self.args),

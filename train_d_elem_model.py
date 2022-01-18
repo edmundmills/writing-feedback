@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     arg_model = DElemModel()
     
-    with WandBRun(args):
+    with WandBRun(args, project_name='d_elelm_model'):
         arg_model.train(class_train_dataset, class_val_dataset,
                         polarity_train_dataset, polarity_val_dataset,
                         args)
