@@ -248,7 +248,7 @@ class WordwiseEnv(SegmentationEnv):
 class SequencewiseEnv(SegmentationEnv):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, args) -> None:
         super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, args)
-        self.action_space = spaces.Discrete(args.action_space_dim)
+        self.action_space = spaces.MultiDiscrete([4,4,4,4])
         self.observation_space = spaces.Dict({
             'essay_tokens': self.essay_tokens_space,
             'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
@@ -267,11 +267,11 @@ class SequencewiseEnv(SegmentationEnv):
         return state
 
     def step(self, action:int):
-        action = action + 2 # Segments must be at least 2 words long
+        word_step = int(2 + action[0] + action[1] * 4 + action[2] * (4**2) + action[3] * (4**3))
         init_value = self.current_state_value()
-        pred_end = min(self.word_idx + action - 1, len(self.essay.words) - 1)
+        pred_end = min(self.word_idx + word_step - 1, len(self.essay.words) - 1)
         self.predictions.append(Prediction(self.word_idx, pred_end, -1, self.essay.essay_id))
-        self.word_idx += action
+        self.word_idx += word_step
         if self.word_idx + 1 >= min(len(self.essay.words), self.max_words):
             self.done = True
         reward = self.current_state_value() - init_value

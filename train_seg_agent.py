@@ -20,7 +20,8 @@ if __name__ == '__main__':
     args = parse_args()
     args = get_config('base', args)
 
-    wandb.tensorboard.patch(root_logdir="log")
+    if args.wandb:
+        wandb.tensorboard.patch(root_logdir="log")
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
     

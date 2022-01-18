@@ -101,7 +101,7 @@ class TestSequencewiseEnv:
     
     def test_act(self, seq_env):
         seq_env.reset()
-        state, reward, done, info = seq_env.step(1)
+        state, reward, done, info = seq_env.step([0,0,1,2])
         assert(isinstance(state, dict))
         assert(isinstance(reward, float))
         assert(not done)
