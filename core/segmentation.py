@@ -37,7 +37,6 @@ class WordwiseFeatures(BaseFeaturesExtractor):
         return output
 
 
-
 class SeqwiseFeatures(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
         feature_dim = args.ner.essay_max_tokens * 2
@@ -63,18 +62,17 @@ class SeqwiseFeatures(BaseFeaturesExtractor):
         return output
 
 
-
-
 def make_agent(base_args, env):
     policy_kwargs = dict(
         features_extractor_class=SeqwiseFeatures,
         features_extractor_kwargs=dict(args=base_args),
         activation_fn=nn.ReLU,
-        net_arch=[dict(pi=[512, 512, 512, 512], vf=[512, 512, 512, 512])]
+        net_arch=[1024, dict(pi=[1024], vf=[1024])]
     )
 
     log_dir = wandb.run.name if base_args.wandb else 'test'
     return PPO("MultiInputPolicy", env,
                policy_kwargs=policy_kwargs,
                verbose=base_args.seg.sb3_verbosity,
-               tensorboard_log=f"./log/{log_dir}/")
+               tensorboard_log=f"./log/{log_dir}/",
+               n_steps=256)
