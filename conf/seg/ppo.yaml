@@ -1,7 +1,7 @@
 name: ppo
 
 train_ner_model: False
-ner_model_name: vibrant-wildflower-3
+ner_model_name: woven-wood-3
 
 layer_size: 512
 n_layers: 3

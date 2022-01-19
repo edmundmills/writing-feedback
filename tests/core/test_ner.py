@@ -49,3 +49,23 @@ class TestNERModel:
         word_ids = torch.LongTensor([[-1, 0, 0]])
         new_probs = model.collate_word_idxs(probs, word_ids)
         assert(torch.equal(new_probs, torch.FloatTensor([[0, .1, 0], [0, .4, 0]]).unsqueeze(-1)))
+
+    def test_inference_seg_only(self, encoded_essay, base_args):
+        base_args.ner.segmentation_only = True
+        model = NERModel(base_args.ner, feature_extractor=True)
+        encoded_text = encoded_essay['input_ids']
+        attention_mask = encoded_essay['attention_mask']
+        word_ids = encoded_essay['word_id_tensor']
+        x = torch.stack((encoded_text, attention_mask, word_ids), dim=1).to(model.device)
+        output = model.inference(x)
+        assert(output.size() == (1, base_args.ner.essay_max_tokens, 1))
+
+    def test_inference(self, encoded_essay, base_args):
+        base_args.ner.segmentation_only = False
+        model = NERModel(base_args.ner, feature_extractor=True)
+        encoded_text = encoded_essay['input_ids']
+        attention_mask = encoded_essay['attention_mask']
+        word_ids = encoded_essay['word_id_tensor']
+        x = torch.stack((encoded_text, attention_mask, word_ids), dim=1).to(model.device)
+        output = model.inference(x)
+        assert(output.size() == (1, base_args.ner.essay_max_tokens, 9))

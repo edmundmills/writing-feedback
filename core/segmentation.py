@@ -20,6 +20,31 @@ def register_extractor(cls):
 
 
 @register_extractor
+class SeqwiseFeatures(BaseFeaturesExtractor):
+    def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
+        feature_dim = args.ner.essay_max_tokens * 10 + args.kls.max_discourse_elements * 8
+        super().__init__(observation_space, features_dim=feature_dim)
+        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+
+        self.extractors = {}
+        for key, _subspace in observation_space.spaces.items():
+            if key == 'ner_probs':
+                self.extractors[key] = nn.Flatten()
+            elif key == 'seg_tokens':
+                self.extractors[key] = nn.Flatten()
+            elif key == 'class_tokens':
+                self.extractors[key] = nn.Flatten()
+
+    def forward(self, observations) -> torch.Tensor:
+        encoded_tensor_list = []
+        for key, extractor in self.extractors.items():
+            subspace_output = extractor(observations[key])
+            encoded_tensor_list.append(subspace_output)
+        output = torch.cat(encoded_tensor_list, dim=-1)
+        return output
+
+
+@register_extractor
 class WordwiseFeatures(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
         feature_dim = args.ner.essay_max_tokens * 2
@@ -38,32 +63,6 @@ class WordwiseFeatures(BaseFeaturesExtractor):
                 d_elem_classifier = ClassificationModel(args.kls).to(device)
                 self.extractors[key] = d_elem_classifier
 
-
-    def forward(self, observations) -> torch.Tensor:
-        encoded_tensor_list = []
-        for key, extractor in self.extractors.items():
-            encoded_tensor_list.append(extractor(observations[key]))
-        output = torch.cat(encoded_tensor_list, dim=-1)
-        return output
-
-
-@register_extractor
-class SeqwiseFeatures(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
-        feature_dim = args.ner.essay_max_tokens * 16
-        super().__init__(observation_space, features_dim=feature_dim)
-        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-
-        self.extractors = {}
-        for key, _subspace in observation_space.spaces.items():
-            if key == 'essay_tokens':
-                ner_model = NERModel(args.ner, feature_extractor=True)
-                if not args.seg.train_ner_model:
-                    ner_model.load(args.seg.ner_model_name)
-                ner_model = ner_model.to(device)
-                self.extractors[key] = ner_model
-            elif key == 'pred_tokens':
-                self.extractors[key] = nn.Flatten()
 
     def forward(self, observations) -> torch.Tensor:
         encoded_tensor_list = []

@@ -8,16 +8,41 @@ from core.segmentation import make_agent
 
 
 class TestSegmentationEnv:
-    def test_make(self, ner_tokenizer, dataset, d_elem_tokenizer, base_args):
-        env = SegmentationEnv.make(2, dataset, ner_tokenizer, d_elem_tokenizer, base_args.env)
-        assert(len(env.get_attr('done')) == 2)
-        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset))
+    def test_make(self, dataset_with_ner_probs, base_args):
+        env = SegmentationEnv.make(2, dataset_with_ner_probs, base_args.env)
+        assert(len(env.get_attr('max_words')) == 2)
+        assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset_with_ner_probs))
         make_agent(base_args, env)
 
 
+class TestSequencewiseEnv:
+    def test_init(self, dataset_with_ner_probs, seqwise_args):
+        seqwise_args.continuous = False
+        env = SegmentationEnv.make(1, dataset_with_ner_probs, seqwise_args)
+        check_env(env)
+        seqwise_args.continuous = True
+        env = SegmentationEnv.make(1, dataset_with_ner_probs, seqwise_args)
+        check_env(env)
+
+    def test_reset(self, seq_env):
+        state = seq_env.reset()
+        assert(isinstance(state, dict))
+        assert(not seq_env.done)
+    
+    def test_act(self, seq_env):
+        seq_env.reset()
+        seq_env.continuous = False
+        state, reward, done, info = seq_env.step([0,0,1,2])
+        seq_env.continuous = True
+        state, reward, done, info = seq_env.step(-.5)
+        assert(isinstance(state, dict))
+        assert(isinstance(reward, float))
+        assert(not done)
+
+
 class TestSplitterEnv:
-    def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, splitter_args):
-        env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, splitter_args)
+    def test_init(self, dataset_with_ner_probs, splitter_args):
+        env = SegmentationEnv.make(1, dataset_with_ner_probs, splitter_args)
         check_env(env)
 
     def test_reset(self, splitter_env):
@@ -39,10 +64,10 @@ class TestSplitterEnv:
 
 
 class TestDividerEnv:
-    def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, divider_args):
-        env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, divider_args)
+    def test_init(self, dataset_with_ner_probs, divider_args):
+        env = SegmentationEnv.make(1, dataset_with_ner_probs, divider_args)
         check_env(env)
-        env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, divider_args)
+        env = SegmentationEnv.make(1, dataset_with_ner_probs, divider_args)
         check_env(env)
 
     def test_reset(self, divider_env):
@@ -73,8 +98,8 @@ class TestDividerEnv:
 
 
 class TestWordwiseEnv:
-    def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, wordwise_args):
-        env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, wordwise_args)
+    def test_init(self, dataset_with_ner_probs, wordwise_args):
+        env = SegmentationEnv.make(1, dataset_with_ner_probs, wordwise_args)
         check_env(env)
 
     def test_reset(self, word_env):
@@ -86,31 +111,6 @@ class TestWordwiseEnv:
         word_env.reset()
         action = np.zeros(1 + 1024 + 32)
         state, reward, done, info = word_env.step(action)
-        assert(isinstance(state, dict))
-        assert(isinstance(reward, float))
-        assert(not done)
-
-
-class TestSequencewiseEnv:
-    def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, seqwise_args):
-        seqwise_args.continuous = False
-        env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, seqwise_args)
-        check_env(env)
-        seqwise_args.continuous = True
-        env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, seqwise_args)
-        check_env(env)
-
-    def test_reset(self, seq_env):
-        state = seq_env.reset()
-        assert(isinstance(state, dict))
-        assert(not seq_env.done)
-    
-    def test_act(self, seq_env):
-        seq_env.reset()
-        seq_env.continuous = False
-        state, reward, done, info = seq_env.step([0,0,1,2])
-        seq_env.continuous = True
-        state, reward, done, info = seq_env.step(1)
         assert(isinstance(state, dict))
         assert(isinstance(reward, float))
         assert(not done)

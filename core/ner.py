@@ -73,30 +73,36 @@ class NERModel(Model):
         probs = torch.gather(probs, dim=-2, index=word_idxs*msk)*msk
         return probs
 
-    def forward(self, input_ids, attention_mask=None):
+    def forward(self, input_ids, attention_mask):
+        encoded = self.transformer(input_ids, attention_mask=attention_mask)
+        output = self.classifier(encoded.last_hidden_state)
+        return output
+
+    def inference(self, input_ids, attention_mask=None, word_ids=None):
         if self.feature_extractor:
             input_ids, attention_mask, word_ids = self.split_essay_tokens(input_ids)
-            with torch.no_grad():
-                self.eval()
-                encoded = self.transformer(input_ids, attention_mask=attention_mask)
-                output = self.classifier(encoded.last_hidden_state)
-            if not self.seg_only:
-                seg_output, class_output = torch.split(output, [2,8], dim=-1)
-                seg_output = F.softmax(seg_output, dim=-1)
-                class_output = F.softmax(class_output, dim=-1)
-                output = torch.cat((seg_output, class_output), dim=-1)
-            else:
-                output = F.softmax(output, dim=-1)
-            attention_mask = attention_mask.unsqueeze(-1).repeat(1,1,output.size(-1))
-            output = output * attention_mask - (1 - attention_mask)
+            print(input_ids.size(), attention_mask.size(), word_ids.size())
+        input_ids = input_ids.to(self.device)
+        attention_mask = attention_mask.to(self.device)
+        word_ids = word_ids.to(self.device)
+        with torch.no_grad():
+            self.eval()
+            output = self(input_ids, attention_mask)
             output = self.collate_word_idxs(output, word_ids)
-            if self.seg_only:
-                _, output = torch.chunk(output, 2, dim=-1)
-                output = torch.flatten(output, start_dim=1)
+        if not self.seg_only:
+            seg_output, class_output = torch.split(output, [2,8], dim=-1)
         else:
-            encoded = self.transformer(input_ids, attention_mask=attention_mask)
-            output = self.classifier(encoded.last_hidden_state)            
-        return output
+            seg_output = output
+        seg_output = F.softmax(seg_output, dim=-1)
+        _, seg_output = torch.chunk(seg_output, 2, dim=-1)
+        if not self.seg_only:
+            class_output = F.softmax(class_output, dim=-1)
+            output = torch.cat((seg_output, class_output), dim=-1)
+        else:
+            output = seg_output
+        attention_mask = attention_mask.unsqueeze(-1).repeat(1,1,output.size(-1))
+        output = output * attention_mask - (1 - attention_mask)
+        return output.cpu()
 
     def train_ner(self, train_dataset, val_dataset, args):
         dataloader = DataLoader(train_dataset,
@@ -119,7 +125,7 @@ class NERModel(Model):
                 print(f'Starting Epoch {epoch} with LR={lr}')
                 seg_loss = 0
                 class_loss = 0
-                for idx, (input_ids, attention_mask, labels) in enumerate(dataloader):
+                for idx, (input_ids, attention_mask, labels, _word_ids) in enumerate(dataloader):
                     step += 1
                     input_ids = input_ids.to(self.device)
                     attention_mask = attention_mask.to(self.device)
@@ -197,7 +203,7 @@ class NERModel(Model):
             running_start_labels = []
             running_class_labels = []
             running_p_pos = []
-            for step, (input_ids, attention_mask, labels) in enumerate(dataloader, start=1):
+            for step, (input_ids, attention_mask, labels, _word_ids) in enumerate(dataloader, start=1):
                 labels = labels.to(self.device).squeeze()
                 input_ids = input_ids.to(self.device)
                 attention_mask = attention_mask.to(self.device)

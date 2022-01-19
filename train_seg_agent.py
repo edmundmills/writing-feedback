@@ -10,7 +10,7 @@ from wandb.integration.sb3 import WandbCallback
 from core.d_elems import DElemTokenizer
 from core.dataset import EssayDataset
 from core.env import SegmentationEnv
-from core.ner import NERTokenizer
+from core.ner import NERModel, NERTokenizer
 from core.segmentation import make_agent
 from utils.config import parse_args, get_config, WandBRun
 
@@ -41,7 +41,10 @@ if __name__ == '__main__':
 
     ner_tokenizer = NERTokenizer(args.ner)
     d_elem_tokenizer = DElemTokenizer(args.kls)
-    env = SegmentationEnv.make(args.seg.n_envs, train, ner_tokenizer, d_elem_tokenizer, args.env)
+    ner_model = NERModel(args.ner)
+    ner_model.load(args.seg.ner_model_name)
+    train.get_ner_probs(ner_tokenizer, ner_model)
+    env = SegmentationEnv.make(args.seg.n_envs, train, args.env)
 
     with WandBRun(args, project_name='segmentation'):
         agent = make_agent(args, env)

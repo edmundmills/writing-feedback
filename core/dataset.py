@@ -7,7 +7,7 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import TensorDataset
+from torch.utils.data import TensorDataset, DataLoader
 import tqdm
 
 from core.constants import data_path, essay_dir, label_file, argument_names, argument_types
@@ -40,6 +40,7 @@ class ComparisonDataset:
 
 class EssayDataset:
     def __init__(self, n_essays=None, essay_ids=None, full_dataset=None) -> None:
+        self.ner_probs = {}
         if n_essays:
             print(f'Loading data for {n_essays} essays')
             essay_ids, self.df = self._load_n_essays(n_essays=n_essays)
@@ -64,6 +65,8 @@ class EssayDataset:
                 essay = (text, labels)
             else:
                 essay = full_dataset.essays[essay_id]
+                if len(full_dataset.ner_probs) > 0:
+                    self.ner_probs[essay_id] = full_dataset.ner_probs[essay_id]
             self.essays[essay_id] = essay
         print(f'Essay dataset created with {len(self)} essays.')
 
@@ -167,6 +170,7 @@ class EssayDataset:
         input_ids = []
         attention_masks = []
         labels = []
+        all_word_ids = []
         for essay in tqdm.tqdm(self):
             encoded = tokenizer.encode(essay.text)
             input_ids.append(encoded['input_ids'])
@@ -183,13 +187,26 @@ class EssayDataset:
                 label_tokens = label_tokens[0]
                 label_tokens = label_tokens[np.newaxis, ...]
             labels.append(torch.LongTensor(label_tokens).squeeze())
+            all_word_ids.append(torch.LongTensor(word_ids).squeeze())
         input_ids = torch.cat(input_ids, dim=0)
         attention_masks = torch.cat(attention_masks, dim=0)
         labels = torch.stack(labels, dim=0)
-        dataset = TensorDataset(input_ids, attention_masks, labels)
+        all_word_ids = torch.stack(all_word_ids, dim=0)
+        dataset = TensorDataset(input_ids, attention_masks, labels, all_word_ids)
         print('NER Dataset Created')
         return dataset
-            
+
+    def get_ner_probs(self, tokenizer, ner_model) -> None:
+        print('Getting NER Probs')
+        self.ner_probs = {}
+        for essay in tqdm.tqdm(self):
+            encoded = tokenizer.encode(essay.text)
+            probs = ner_model.inference(encoded['input_ids'],
+                                        encoded['attention_mask'],
+                                        encoded['word_id_tensor'])
+            self.ner_probs[essay.essay_id] = probs
+        print('NER Probs Added to Dataset')
+        return self.ner_probs
 
     def make_essay_feedback_dataset(self, encoder, randomize_segments=False) -> TensorDataset:
         print('Making Essay Feedback Dataset')
