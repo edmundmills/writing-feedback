@@ -28,7 +28,7 @@ class TestNERModel:
         attention_mask = encoded_essay['attention_mask']
         output = model(encoded_text.to(model.device),
                        attention_mask.to(model.device))
-        assert(output.size() == (1, ner_args.essay_max_tokens, 15))
+        assert(output.size() == (1, ner_args.essay_max_tokens, 10))
 
     def test_collate_word_idxs(self, ner_args):
         model = NERModel(ner_args)

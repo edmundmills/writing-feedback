@@ -7,17 +7,13 @@ from utils.grading import *
 class TestPstringsToTokens:
     def test_valid(self, prediction):
         length = 50
-        tokens = to_tokens([prediction], length, seg_only=True)
-        assert(len(tokens) == length)
-        assert(set(tokens) == set((-1, 0, 1)))
-
-    def test_valid(self, prediction):
-        length = 50
-        tokens = to_tokens([prediction], length, seg_only=False)
-        assert(len(tokens) == length)
-        assert(min(tokens) == -1)
-        assert(max(tokens) <= 15)
-        assert(max(tokens) >= 8)
+        tokens = to_tokens([prediction], length)
+        start_tokens = tokens[0]
+        class_tokens = tokens[1]
+        assert(tokens.shape == (2,length))
+        assert(set(start_tokens) == set((-1, 0, 1)))
+        assert(min(class_tokens) == -1)
+        assert(max(class_tokens) <= 7)
 
 
 class TestPredictionString:
@@ -28,6 +24,7 @@ class TestPredictionString:
     def test_same(self):
         predictionstring = prediction_string(0, 0)
         assert(predictionstring == '0')
+
 
 class TestIsMatch:
     def test_exact_match(self, essay):
