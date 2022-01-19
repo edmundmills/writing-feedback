@@ -112,7 +112,7 @@ class SplitterEnv(SegmentationEnv):
         self.action_space = spaces.Discrete(self.max_words)
         self.observation_space = spaces.Dict({
             'essay_tokens': self.essay_tokens_space,
-            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
+            'pred_tokens': spaces.Box(low=-1, high=15, shape=(self.max_words,), dtype=np.int8)
         })
 
     @property
@@ -158,7 +158,7 @@ class DividerEnv(SegmentationEnv):
         self.action_space = spaces.MultiDiscrete([3]*(self.max_d_elems - 1) + [2])
         self.observation_space = spaces.Dict({
             'essay_tokens': self.essay_tokens_space,
-            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
+            'pred_tokens': spaces.Box(low=-1, high=15, shape=(self.max_words,), dtype=np.int8)
         })
 
     @property
@@ -248,10 +248,15 @@ class WordwiseEnv(SegmentationEnv):
 class SequencewiseEnv(SegmentationEnv):
     def __init__(self, essay_dataset, word_tokenizer, d_elem_tokenizer, args) -> None:
         super().__init__(essay_dataset, word_tokenizer, d_elem_tokenizer, args)
-        self.action_space = spaces.MultiDiscrete([4,4,4,4])
+        self.continuous = args.continuous
+        self.action_space_dim = args.action_space_dim
+        if args.continuous:
+            self.action_space = spaces.Box(-1, 1, (1,))
+        else:
+            self.action_space = spaces.MultiDiscrete([4,4,4,4])
         self.observation_space = spaces.Dict({
             'essay_tokens': self.essay_tokens_space,
-            'pred_tokens': spaces.Box(low=-1, high=1, shape=(self.max_words,), dtype=np.int8)
+            'pred_tokens': spaces.Box(low=-1, high=15, shape=(self.max_words,), dtype=np.int8)
         })
 
     def reset(self):
@@ -267,7 +272,10 @@ class SequencewiseEnv(SegmentationEnv):
         return state
 
     def step(self, action:int):
-        word_step = int(2 + action[0] + action[1] * 4 + action[2] * (4**2) + action[3] * (4**3))
+        if self.continuous:
+            word_step = int((action + 1) * self.action_space_dim/2 + 1)
+        else:
+            word_step = int(2 + action[0] + action[1] * 4 + action[2] * (4**2) + action[3] * (4**3))
         init_value = self.current_state_value()
         pred_end = min(self.word_idx + word_step - 1, len(self.essay.words) - 1)
         self.predictions.append(Prediction(self.word_idx, pred_end, -1, self.essay.essay_id))

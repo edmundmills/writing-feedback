@@ -42,6 +42,8 @@ class TestDividerEnv:
     def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, divider_args):
         env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, divider_args)
         check_env(env)
+        env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, divider_args)
+        check_env(env)
 
     def test_reset(self, divider_env):
         state = divider_env.reset()
@@ -91,6 +93,10 @@ class TestWordwiseEnv:
 
 class TestSequencewiseEnv:
     def test_init(self, ner_tokenizer, dataset, d_elem_tokenizer, seqwise_args):
+        seqwise_args.continuous = False
+        env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, seqwise_args)
+        check_env(env)
+        seqwise_args.continuous = True
         env = SegmentationEnv.make(1, dataset, ner_tokenizer, d_elem_tokenizer, seqwise_args)
         check_env(env)
 
@@ -101,7 +107,10 @@ class TestSequencewiseEnv:
     
     def test_act(self, seq_env):
         seq_env.reset()
+        seq_env.continuous = False
         state, reward, done, info = seq_env.step([0,0,1,2])
+        seq_env.continuous = True
+        state, reward, done, info = seq_env.step(1)
         assert(isinstance(state, dict))
         assert(isinstance(reward, float))
         assert(not done)

@@ -158,7 +158,6 @@ def assign_env():
 def splitter_args():
     args = get_config('base', args=['env=splitter'])
     env_args = args.env
-    env_args.n_envs = 1
     return env_args
 
 @pytest.fixture
@@ -175,7 +174,6 @@ def splitter_env():
 def seqwise_args():
     args = get_config('base', args=['env=seqwise'])
     env_args = args.env
-    env_args.n_envs = 1
     return env_args
 
 @pytest.fixture
@@ -192,7 +190,6 @@ def seq_env():
 def divider_args():
     args = get_config('base', args=['env=divider'])
     env_args = args.env
-    env_args.n_envs = 1
     return env_args
 
 @pytest.fixture
@@ -209,7 +206,6 @@ def divider_env():
 def wordwise_args():
     args = get_config('base', args=['env=wordwise'])
     env_args = args.env
-    env_args.n_envs = 1
     return env_args
 
 @pytest.fixture
