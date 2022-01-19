@@ -1,6 +1,6 @@
 from git import base
 import gym
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch
 import torch.nn as nn
@@ -76,18 +76,35 @@ class SeqwiseFeatures(BaseFeaturesExtractor):
 def make_agent(base_args, env):
     seg_args = base_args.seg
     extractor_class = extractors[base_args.env.feature_extractor]
-    policy_kwargs = dict(
-        features_extractor_class=extractor_class,
-        features_extractor_kwargs=dict(args=base_args),
-        activation_fn=nn.ReLU,
-        net_arch=[dict(pi=[seg_args.layer_size]*seg_args.n_layers,
-                       vf=[seg_args.layer_size]*seg_args.n_layers)]
-    )
     log_dir = wandb.run.name if base_args.wandb else 'test'
-    return PPO("MultiInputPolicy", env,
-               policy_kwargs=policy_kwargs,
-               verbose=base_args.seg.sb3_verbosity,
-               tensorboard_log=f"log/{log_dir}/",
-               n_steps=seg_args.n_steps,
-               batch_size=seg_args.batch_size,
-               )
+    agent_kwargs = dict(
+        verbose=base_args.seg.sb3_verbosity,
+        tensorboard_log=f"log/{log_dir}/",
+    )
+    if seg_args.name == 'sac':
+        agent_cls = SAC
+        policy_kwargs = dict(
+            features_extractor_class=extractor_class,
+            features_extractor_kwargs=dict(args=base_args),
+            activation_fn=nn.ReLU,
+            net_arch=[seg_args.layer_size]*seg_args.n_layers,
+        )
+        agent_kwargs.update(dict(
+            policy_kwargs=policy_kwargs,
+            batch_size=seg_args.batch_size
+        ))
+    elif seg_args.name == 'ppo':
+        policy_kwargs = dict(
+            features_extractor_class=extractor_class,
+            features_extractor_kwargs=dict(args=base_args),
+            activation_fn=nn.ReLU,
+            net_arch=[dict(pi=[seg_args.layer_size]*seg_args.n_layers,
+                        vf=[seg_args.layer_size]*seg_args.n_layers)]
+        )
+        agent_cls = PPO
+        agent_kwargs.update(dict(
+            policy_kwargs=policy_kwargs,
+            n_steps=seg_args.n_steps,
+            batch_size=seg_args.batch_size
+        ))
+    return agent_cls("MultiInputPolicy", env, **agent_kwargs)

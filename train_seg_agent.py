@@ -33,7 +33,7 @@ if __name__ == '__main__':
     if args.debug:
         dataset = EssayDataset(n_essays=3)
         args.seg.total_timesteps = 1024
-        args.seg.n_envs = 2
+        args.seg.n_envs = min(2, args.seg.n_envs)
     else:
         dataset = EssayDataset()
 
