@@ -10,6 +10,7 @@ import wandb
 
 from utils.networks import MLP, Model, Mode
 from core.constants import argument_names
+from utils.render import plot_ner_output
 
 class NERTokenizer:
     def __init__(self, args):
@@ -63,11 +64,12 @@ class NERModel(Model):
         return input_ids, attention_mask, word_ids
 
     def collate_word_idxs(self, probs, word_ids):
-        *_, n_essays, n_tokens, n_categories = probs.size()
+        n_essays, n_tokens, n_categories = probs.size()
         range_tensor = torch.arange(n_tokens, device=probs.device)
         range_tensor = range_tensor.repeat(n_essays, 1)
         word_idxs = range_tensor + range_tensor - word_ids - 1
-        msk = torch.le(word_idxs, 2 + torch.max(word_ids, dim=-1, keepdim=True).values)
+        total_words = torch.max(word_ids, dim=-1, keepdim=True).values
+        msk = torch.le(range_tensor, total_words - 1)
         msk = msk.unsqueeze(-1).repeat(1,1,n_categories)
         word_idxs = word_idxs.unsqueeze(-1).repeat(1,1,n_categories)
         probs = torch.gather(probs, dim=-2, index=word_idxs*msk)*msk
@@ -81,7 +83,6 @@ class NERModel(Model):
     def inference(self, input_ids, attention_mask=None, word_ids=None):
         if self.feature_extractor:
             input_ids, attention_mask, word_ids = self.split_essay_tokens(input_ids)
-            print(input_ids.size(), attention_mask.size(), word_ids.size())
         input_ids = input_ids.to(self.device)
         attention_mask = attention_mask.to(self.device)
         word_ids = word_ids.to(self.device)
@@ -101,6 +102,7 @@ class NERModel(Model):
         else:
             output = seg_output
         attention_mask = attention_mask.unsqueeze(-1).repeat(1,1,output.size(-1))
+        attention_mask = self.collate_word_idxs(attention_mask, word_ids)
         output = output * attention_mask - (1 - attention_mask)
         return output.cpu()
 
