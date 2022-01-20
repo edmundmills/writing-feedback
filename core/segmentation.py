@@ -73,11 +73,12 @@ class SegmentAttention(BaseFeaturesExtractor):
                                                    nhead=args.env.n_head,
                                                    batch_first=True)
         self.attention = nn.TransformerEncoder(encoder_layer, args.env.num_attention_layers).to(device)
-        self.positional_encoder = PositionalEncoder(features=18, seq_len=32, device=device)
+        # self.positional_encoder = PositionalEncoder(features=18, seq_len=32, device=device)
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():
-            observations = self.positional_encoder(observations)
+            observations[:,:,9] /= 128
+        #     observations = self.positional_encoder(observations)
         output = self.attention(observations)
         output = output.flatten(start_dim=1)
         return output

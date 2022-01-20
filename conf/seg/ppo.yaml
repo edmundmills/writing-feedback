@@ -7,9 +7,9 @@ layer_size: 1024
 n_layers: 5
 
 total_timesteps: 1e6
-n_steps: 64
-batch_size: 64
-n_envs: 1
+n_steps: 256
+batch_size: 512
+n_envs: 12
 
 save_ner_probs: False
 load_ner_probs: True

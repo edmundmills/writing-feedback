@@ -38,7 +38,7 @@ class SegmentationEnv(gym.Env):
                                           shape=(self.max_words, 9))
         self.segmentation_tokens_space = spaces.Box(low=-1, high=1,
                                                     shape=(self.max_words,))
-        self.classification_token_space = spaces.Box(low=0, high=1,
+        self.classification_token_space = spaces.Box(low=-1, high=1,
                                                      shape=(self.max_d_elems, 8))
         self.observation_space = spaces.Dict({
             'ner_probs': self.ner_probs_space,
@@ -76,8 +76,12 @@ class SegmentationEnv(gym.Env):
     @property
     def class_tokens(self):
         labels = [pred.label for pred in self.predictions[:self.max_d_elems]]
-        class_tokens = np.zeros((self.max_d_elems, 8), dtype=np.int8)
+        class_tokens = np.zeros((len(self.predictions), 8), dtype=np.int8)
         class_tokens[np.arange(len(labels)), labels] = 1
+        class_tokens = np.concatenate((
+            class_tokens,
+            -np.ones((self.max_d_elems - len(self.predictions),8))
+        ), axis=0)
         return class_tokens
 
     @property
@@ -316,6 +320,8 @@ class AssignmentEnv(SegmentationEnv):
         ), axis=-1)
 
     def step(self, action):
+        if action == 8:
+            self.grade_classifications = False
         init_value = self.current_state_value()
         if self.done:
             raise RuntimeError('Environment is done, must be reset')
@@ -326,6 +332,7 @@ class AssignmentEnv(SegmentationEnv):
             func()
         info = {}
         reward = self.current_state_value() - init_value
+        self.grade_classifications = True
         return self.state, reward, self.done, info
 
     @property
