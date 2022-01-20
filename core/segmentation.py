@@ -64,6 +64,24 @@ def register_extractor(cls):
 
 
 @register_extractor
+class SegmentAttention(BaseFeaturesExtractor):
+    def __init__(self, observation_space, args):
+        feature_dim = args.env.num_d_elems * 18
+        super().__init__(observation_space, features_dim=feature_dim)
+        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+        encoder_layer = nn.TransformerEncoderLayer(d_model=18,
+                                                   nhead=args.env.n_head,
+                                                   batch_first=True)
+        self.attention = nn.TransformerEncoder(encoder_layer, args.env.num_attention_layers).to(device)
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        output = self.attention(observations)
+        output = output.flatten(start_dim=1)
+        return output
+
+
+
+@register_extractor
 class SeqwiseFeatures(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, args) -> None:
         feature_dim = args.ner.essay_max_tokens * 10 + args.kls.max_discourse_elements * 8

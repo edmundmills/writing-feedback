@@ -1,8 +1,7 @@
 import torch
 
 from core.segmentation import *
-from core.ner import NERModel
-
+from core.env import SegmentationEnv
 
 class TestSegmentNERProbs:
     def test_valid(self, ner_probs):
@@ -15,5 +14,6 @@ class TestSegmentNERProbs:
         assert(torch.max(start_probs).item() <= 1)
 
 class TestAgent:
-    def test_make(self, seq_env, base_args):
-        make_agent(base_args, seq_env)
+    def test_make(self, dataset_with_ner_probs, base_args):
+        env = SegmentationEnv.make(1, dataset_with_ner_probs, base_args.env)
+        make_agent(base_args, env)
