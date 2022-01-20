@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import pickle
 import random
 import transformers
 import torch
@@ -37,13 +38,28 @@ if __name__ == '__main__':
     else:
         dataset = EssayDataset()
 
+
+    ner_probs_path = 'data/ner_probs.pkl'
+    if args.seg.load_ner_probs:
+        with open(ner_probs_path, 'rb') as saved_file:
+            dataset.ner_probs = pickle.load(saved_file)
+        print(f'NER Probs Loaded from {ner_probs_path}')
+    else:
+        ner_tokenizer = NERTokenizer(args.ner)
+        d_elem_tokenizer = DElemTokenizer(args.kls)
+        ner_model = NERModel(args.ner)
+        ner_model.load(args.seg.ner_model_name)
+        dataset.get_ner_probs(ner_tokenizer, ner_model)
+        del ner_tokenizer
+        del ner_model
+        if args.seg.save_ner_probs:
+            print(f'Saving NER Probs to {ner_probs_path}')
+            with open(ner_probs_path, 'wb') as saved_file:
+                pickle.dump(dataset.ner_probs, saved_file)
+            print('NER probs saved')
+
     train, val = dataset.split()
 
-    ner_tokenizer = NERTokenizer(args.ner)
-    d_elem_tokenizer = DElemTokenizer(args.kls)
-    ner_model = NERModel(args.ner)
-    ner_model.load(args.seg.ner_model_name)
-    train.get_ner_probs(ner_tokenizer, ner_model)
     env = SegmentationEnv.make(args.seg.n_envs, train, args.env)
 
     with WandBRun(args, project_name='segmentation'):
