@@ -118,57 +118,32 @@ class TestWordwiseEnv:
 
 
 class TestAssignmentEnv:
+    def test_init(self, dataset_with_ner_probs, assign_args):
+        env = SegmentationEnv.make(1, dataset_with_ner_probs, assign_args)
+        check_env(env)
+
     def test_reset(self, assign_env):
         assign_env.reset()
         assert(assign_env.done == False)
-        assert(assign_env.reward == 0)
-        assert(isinstance(assign_env.essay, Essay))
-        assert(isinstance(assign_env.sentences, list))
-        position = torch.zeros(assign_env.max_sentences)
-        position[0] = 1
-        assert(torch.equal(assign_env.position, position))
 
-    def test_env_done(self, assign_env):
-        assign_env.done = True
-        with pytest.raises(RuntimeError):
-            assign_env.step(0)
-    
-    def test_action_not_in_actions(self, assign_env):
+    def test_merge(self, assign_env):
         assign_env.reset()
-        with pytest.raises(ValueError):
-            assign_env.step(-1)
+        num_segments = assign_env.num_segments
+        prev_cur_segment = assign_env.segmented_ner_probs[0,0,:]
+        prev_next_segment = assign_env.segmented_ner_probs[0,1,:]
+        assign_env.step(8)
+        cur_segment = assign_env.segmented_ner_probs[0,0,:]
+        assert(assign_env.num_segments == num_segments - 1)
+        assert(prev_cur_segment[0] == cur_segment[0])
+        assert(prev_cur_segment[-1] + prev_next_segment[-1] == cur_segment[-1])
+        assert(all((prev_cur_segment[1:-1] != cur_segment[1:-1]).tolist()))
 
-    def test_up_valid(self, assign_env):
+    def test_assign(self, assign_env):
         assign_env.reset()
-        expected_position = torch.zeros(assign_env.max_sentences)
-        expected_position[1] = 1
-        (position, _, _), reward, done = assign_env.step(0)
-        assert(torch.equal(position, expected_position))
-
-    def test_up_invalid(self, assign_env):
-        assign_env.reset()
-        assign_env._position = assign_env.max_sentences - 1
-        expected_position = torch.zeros(assign_env.max_sentences)
-        expected_position[-1] = 1
-        (position, _, _), reward, done = assign_env.step(0)
-        assert(torch.equal(position, expected_position))
-
-    def test_down_valid(self, assign_env):
-        assign_env.reset()
-        assign_env._position = 2
-        expected_position = torch.zeros(assign_env.max_sentences)
-        expected_position[1] = 1
-        (position, _, _), reward, done = assign_env.step(1)
-        assert(torch.equal(position, expected_position))
-
-    def test_down_invalid(self, assign_env):
-        assign_env.reset()
-        expected_position = torch.zeros(assign_env.max_sentences)
-        expected_position[0] = 1
-        (position, _, _), reward, done = assign_env.step(1)
-        assert(torch.equal(position, expected_position))
-        
-    def test_end(self, assign_env):
-        assign_env.reset()
-        assign_env.step(13)
-        assert(assign_env.done == True)
+        assert(len(assign_env.predictions) == 0)
+        action = 0
+        assign_env.step(action)
+        assert(len(assign_env.predictions) == 1)
+        assert(assign_env.class_tokens[0,action] == 1)
+        assert(assign_env.predictions[0].label == action)
+        assert(len(assign_env.predictions[0]) == assign_env.segment_lens[0])

@@ -3,12 +3,13 @@ from typing import List
 
 import numpy as np
 from omegaconf import OmegaConf
+import pickle
 import pytest
 import torch
 
 from core.d_elems import DElemTokenizer
 from core.dataset import EssayDataset
-from core.env import AssigmentEnv, DividerEnv, SequencewiseEnv, SplitterEnv, WordwiseEnv
+from core.env import AssignmentEnv, DividerEnv, SequencewiseEnv, SplitterEnv, WordwiseEnv
 from core.essay import Prediction
 from core.classification import ClassificationModel
 from utils.config import get_config
@@ -21,6 +22,7 @@ torch.cuda.manual_seed_all(0)
 max_d_elems = 32
 encoded_sentence_length = 768
 encoded_essay_length = 1024
+ner_probs_path = 'data/ner_probs.pkl'
 
 
 @pytest.fixture
@@ -116,6 +118,11 @@ class NERModel:
     def inference(self, *args, **kwargs):
         return torch.ones(1, encoded_essay_length, 9).float()
 
+@pytest.fixture
+def ner_probs():
+    with open(ner_probs_path, 'rb') as saved_file:
+        ner_probs = pickle.load(saved_file)
+    return next(iter(ner_probs.values()))
 
 @pytest.fixture
 def d_elem_tokenizer():
@@ -172,8 +179,20 @@ def dataset_with_ner_probs():
     return dataset
 
 @pytest.fixture
+def assign_args():
+    args = get_config('base', args=['env=assignment'])
+    env_args = args.env
+    return env_args
+
+@pytest.fixture
 def assign_env():
-    return AssigmentEnv(n_essays=10)
+    args = get_config('base', args=['env=assignment'])
+    dataset = EssayDataset(n_essays=5)
+    with open(ner_probs_path, 'rb') as saved_file:
+        dataset.ner_probs = pickle.load(saved_file)
+    dataset = dataset.split([1])[0]
+    env = AssignmentEnv(dataset, args.env)
+    return env
 
 @pytest.fixture
 def splitter_args():

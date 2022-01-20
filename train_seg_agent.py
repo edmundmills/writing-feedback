@@ -46,7 +46,6 @@ if __name__ == '__main__':
         print(f'NER Probs Loaded from {ner_probs_path}')
     else:
         ner_tokenizer = NERTokenizer(args.ner)
-        d_elem_tokenizer = DElemTokenizer(args.kls)
         ner_model = NERModel(args.ner)
         ner_model.load(args.seg.ner_model_name)
         dataset.get_ner_probs(ner_tokenizer, ner_model)

@@ -35,6 +35,7 @@ class TestNERModel:
         probs = torch.FloatTensor([0, .1, .2, .3, .4, .5, 0]).unsqueeze(0).unsqueeze(-1)
         word_ids = torch.LongTensor([-1, 0, 1, 1, 2, 2, -1]).unsqueeze(0)
         new_probs = model.collate_word_idxs(probs, word_ids)
+        print(new_probs)
         assert(torch.equal(new_probs,
                            torch.FloatTensor([0, .1, .2, .4, 0, 0, 0]).unsqueeze(0).unsqueeze(-1)))
         probs = torch.FloatTensor([[0, .1, .2], [0, .4, .5]]).unsqueeze(-1)

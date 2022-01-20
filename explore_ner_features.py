@@ -9,6 +9,7 @@ import torch
 import wandb
 
 from core.dataset import EssayDataset
+from core.segmentation import segment_ner_probs
 from utils.config import parse_args, get_config
 from utils.render import plot_ner_output  
 
@@ -38,4 +39,6 @@ if __name__ == '__main__':
     for pred in essay.correct_predictions:
         print(pred)
     ner_probs = dataset.ner_probs[essay.essay_id]
+    segments = segment_ner_probs(ner_probs)
     plot_ner_output(ner_probs)
+    plot_ner_output(segments)

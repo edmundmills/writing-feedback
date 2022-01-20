@@ -56,6 +56,12 @@ class TestEssayDataset:
         datasets = dataset.split([.25, .25, .25, .25])
         assert(len(datasets) == 4)
 
+    def test_split_one(self, dataset):
+        datasets = dataset.split([1])
+        new_dataset = datasets[0]
+        assert(len(datasets) == 1)
+        assert(len(new_dataset) == len(dataset))
+
     def test_make_polarity_dataset(self, dataset):
         polarity_dataset = dataset.make_polarity_dataset()
         assert(isinstance(polarity_dataset, ComparisonDataset))

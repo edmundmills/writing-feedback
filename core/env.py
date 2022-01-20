@@ -3,15 +3,18 @@ from functools import partial
 import gym
 from gym import spaces
 import numpy as np
+from pandas import merge
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 import torch
 
-from core.constants import argument_names
+from core.constants import argument_names, argument_types
 from core.dataset import EssayDataset
 from core.essay import Prediction
+from core.segmentation import segment_ner_probs
 from utils.text import to_sentences
 from utils.grading import to_tokens
+from utils.render import plot_ner_output
 
 
 env_classes = {}
@@ -30,6 +33,7 @@ class SegmentationEnv(gym.Env):
         self.max_d_elems = env_args.num_d_elems
         self.max_words = env_args.num_words
         self.essay = None
+        self.grade_classifications = env_args.grade_classifications
         self.ner_probs_space = spaces.Box(low=0, high=1,
                                           shape=(self.max_words, 9))
         self.segmentation_tokens_space = spaces.Box(low=-1, high=1,
@@ -77,6 +81,14 @@ class SegmentationEnv(gym.Env):
         return class_tokens
 
     @property
+    def essay_id(self):
+        return self.essay.essay_id
+
+    @property
+    def num_essay_words(self):
+        return min(len(self.essay.words), self.max_words)
+
+    @property
     def state(self):
         state = {
             'seg_tokens': self.seg_tokens,
@@ -86,7 +98,10 @@ class SegmentationEnv(gym.Env):
         return state
 
     def current_state_value(self):
-        labels = self.essay.get_labels(self.predictions)
+        if self.grade_classifications:
+            labels = [pred.label for pred in self.predictions]
+        else:
+            labels = self.essay.get_labels(self.predictions)
         predictions = [
             {'id': self.essay.essay_id,
              'class': argument_names[label],
@@ -268,58 +283,40 @@ class WordwiseEnv(SegmentationEnv):
         self.prev_d_elem_tokens = np.zeros((self.max_d_elems, len(argument_names)))
         return super().reset()
 
-
-class AssigmentEnv(gym.Env):
-    def __init__(self, n_essays=None) -> None:
-        super().__init__()
+@register_env
+class AssignmentEnv(SegmentationEnv):
+    def __init__(self, essay_dataset, env_args) -> None:
+        super().__init__(essay_dataset, env_args)
         self.actions = {
-            0: self._move_up,
-            1: self._move_down,
-            2: self._merge,
-            3: self._split,
-            4: self._advance,
-            5: partial(self._assign, 'Lead'),
-            6: partial(self._assign, 'Position'),
-            7: partial(self._assign, 'Claim'),
-            8: partial(self._assign, 'Counterclaim'),
-            9: partial(self._assign, 'Rebuttal'),
-            10: partial(self._assign, 'Evidence'),
-            11: partial(self._assign, 'Concluding Statement'),
-            12: partial(self._assign, None),
-            13: self._end
+            0: partial(self._assign, 'None'),
+            1: partial(self._assign, 'Lead'),
+            2: partial(self._assign, 'Position'),
+            3: partial(self._assign, 'Claim'),
+            4: partial(self._assign, 'Counterclaim'),
+            5: partial(self._assign, 'Rebuttal'),
+            6: partial(self._assign, 'Evidence'),
+            7: partial(self._assign, 'Concluding Statement'),
+            8: self._merge,
         }
-        self.sentence_state = None
-        self.argument_state = None
-        self._position = None
-        self.reward = None
-        self.done = None
-        print('Loading Dataset')
-        self.dataset = EssayDataset(n_essays=n_essays)
-        print('Dataset Loaded')
-        self.max_sentences = 60
-        self.max_args = 20
+        self.segmented_ner_probs = torch.zeros((1,self.max_d_elems, 10))
+        self.action_space = spaces.Discrete(max(self.actions.keys()))
+        self.observation_space =  spaces.Box(-1,self.max_words,
+                                             shape=(self.max_d_elems, 18))
 
-    def reset(self):
-        self.done = False
-        self.reward = 0
-        self.essay = self.dataset.random_essay()[0]
-        self.sentences = to_sentences(self.essay.text)
-        self._position = 0
-        self.sentence_state = None
-        self.argument_state = None
+    def reset(self, *args, **kwargs):
+        super().reset(*args, **kwargs)
+        self.segmented_ner_probs = segment_ner_probs(self.ner_probs)
         return self.state
 
     @property
-    def position(self):
-        position = torch.zeros(self.max_sentences)
-        position[self._position] = 1
-        return position
-
-    @property
     def state(self):
-        return self.position, self.sentence_state, self.argument_state
+        return np.concatenate((
+            self.segmented_ner_probs.squeeze(0).numpy(),
+            self.class_tokens
+        ), axis=-1)
 
     def step(self, action):
+        init_value = self.current_state_value()
         if self.done:
             raise RuntimeError('Environment is done, must be reset')
         if action not in self.actions:
@@ -327,31 +324,57 @@ class AssigmentEnv(gym.Env):
         else:
             func = self.actions[action]
             func()
-        return self.state, self.reward, self.done
+        info = {}
+        reward = self.current_state_value() - init_value
+        return self.state, reward, self.done, info
 
-    def _move_up(self):
-        if self._position < (self.max_sentences - 1):
-            self._position += 1
+    @property
+    def segment_lens(self):
+        seg_lens = self.segmented_ner_probs[0,:,-1].tolist()
+        seg_lens = [seg_len for seg_len in seg_lens if seg_len != -1]
+        return seg_lens
 
-    def _move_down(self):
-        if self._position > 0:
-            self._position -= 1
+    @property
+    def num_segments(self):
+        return len(self.segment_lens)
+
+    @property
+    def cur_seg_idx(self):
+        return len(self.predictions)
+
+    @property
+    def word_idx(self):
+        return sum(self.segment_lens[:self.cur_seg_idx])
 
     def _merge(self):
-        pass
-
-    def _advance(self):
-        pass
-
-    def _split(self):
-        pass
+        if (self.cur_seg_idx + 1) >= len(self.segment_lens):
+            return
+        cur_len = self.segment_lens[self.cur_seg_idx]
+        next_len = self.segment_lens[self.cur_seg_idx + 1]
+        total_len = cur_len + next_len
+        merge_seg_data = self.segmented_ner_probs[:,self.cur_seg_idx:(self.cur_seg_idx+2),:]
+        start_prob = merge_seg_data[0,0,0]
+        prev_seg_data = self.segmented_ner_probs[:,:self.cur_seg_idx,:]
+        next_seg_data = self.segmented_ner_probs[:,(self.cur_seg_idx+2):,:]
+        merge_seg_data = (cur_len * merge_seg_data[:,0:1,:]
+                          + next_len * merge_seg_data[:,1:2,:]) / total_len
+        merge_seg_data[0,0,0] = start_prob
+        merge_seg_data[0,0,-1] = total_len
+        pad = -torch.ones((1,1,10))
+        self.segmented_ner_probs = torch.cat((prev_seg_data, merge_seg_data,
+                                              next_seg_data, pad), dim=1)
 
     def _assign(self, label):
-        pass
+        label = argument_types[label]
+        pred_len = self.segment_lens[self.cur_seg_idx]
+        start = self.word_idx
+        stop = start + pred_len - 1
+        pred = Prediction(start, start + pred_len - 1, label, self.essay_id)
+        self.predictions.append(pred)
+        if (stop + 1)>= (self.num_essay_words - 1):
+            self.done = True
 
-    def _end(self):
-        # self.reward = essay.grade(self.submission(), self.essay)
-        self.done = True
+    @property
+    def num_essay_words(self):
+        return min(sum(self.segment_lens), self.max_words)
 
-    def submission(self):
-        pass

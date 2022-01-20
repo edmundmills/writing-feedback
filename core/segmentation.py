@@ -1,5 +1,8 @@
-from git import base
+from typing import Union
+
 import gym
+import numpy as np
+from pandas import isna
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch
@@ -9,8 +12,49 @@ import wandb
 from core.d_elems import DElemEncoder
 from core.classification import ClassificationModel
 from core.ner import NERModel
+from utils.render import plot_ner_output
 
 extractors = {}
+
+
+def segment_ner_probs(ner_probs:Union[torch.Tensor, np.ndarray], threshold=0.2, max_segments=32):
+    ner_probs = torch.tensor(ner_probs)
+    if len(ner_probs.size()) == 2:
+        ner_probs = ner_probs.unsqueeze(0)
+    segments = ner_probs[0,:,0] > threshold
+    segments = segments.tolist()
+    segment_data = []
+    cur_seg_data = []
+
+    def concat_seg_data(seg_data):
+        seg_len = len(seg_data)
+        start_prob = seg_data[0][0,0]
+        seg_data = torch.cat(seg_data, dim=0)
+        seg_data = torch.sum(seg_data, dim=0, keepdim=True) / seg_len
+        seg_data[:,0] = start_prob
+        seg_data = torch.cat((seg_data, torch.tensor(seg_len).reshape(1,1)), dim=-1)
+        return seg_data
+
+    for div_idx, divider in enumerate(segments):
+        if ner_probs[0, div_idx, 0].item() == -1:
+            break
+        if divider and cur_seg_data:
+            cur_seg_data = concat_seg_data(cur_seg_data)
+            segment_data.append(cur_seg_data)
+            cur_seg_data = []
+        cur_slice = ner_probs[:,div_idx]
+        cur_seg_data.append(cur_slice)
+    if cur_seg_data:
+        cur_seg_data = concat_seg_data(cur_seg_data)
+        segment_data.append(cur_seg_data)
+    n_segments = len(segment_data)
+    segmented = torch.cat(segment_data, dim=0)
+    padding = max(0, max_segments - n_segments)
+    segmented = torch.cat((segmented[:max_segments], -torch.ones((padding, 10))), dim=0)
+    segmented = segmented.unsqueeze(0)
+    return segmented
+
+    
 
 def register_extractor(cls):
     extractors.update({cls.__name__: cls})

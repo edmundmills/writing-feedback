@@ -69,7 +69,7 @@ class NERModel(Model):
         range_tensor = range_tensor.repeat(n_essays, 1)
         word_idxs = range_tensor + range_tensor - word_ids - 1
         total_words = torch.max(word_ids, dim=-1, keepdim=True).values
-        msk = torch.le(range_tensor, total_words - 1)
+        msk = torch.le(range_tensor, total_words + 1)
         msk = msk.unsqueeze(-1).repeat(1,1,n_categories)
         word_idxs = word_idxs.unsqueeze(-1).repeat(1,1,n_categories)
         probs = torch.gather(probs, dim=-2, index=word_idxs*msk)*msk
