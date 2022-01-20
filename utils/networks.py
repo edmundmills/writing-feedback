@@ -70,24 +70,24 @@ class MLP(nn.Module):
 
 
 class PositionalEncoder(nn.Module):
-    def __init__(self, d_model, max_seq_len=768):
+    def __init__(self, seq_len, features=768, device='cpu'):
         super().__init__()
-        self.d_model = d_model
+        self.features = features
         
         # create constant 'pe' matrix with values dependant on 
         # pos and i
-        pe = torch.zeros(d_model, max_seq_len)
-        for pos in range(max_seq_len):
-            for i in range(0, d_model, 2):
-                pe[i, pos] = math.sin(pos / (10000 ** ((2 * i)/d_model)))
-                pe[i + 1, pos] = math.cos(pos / (10000 ** ((2 * (i + 1))/d_model)))
-        self.pe = pe
+        pe = torch.zeros(seq_len, features)
+        for pos in range(features):
+            for i in range(0, seq_len, 2):
+                pe[i, pos] = math.sin(pos / (10000 ** ((2 * i)/seq_len)))
+                pe[i + 1, pos] = math.cos(pos / (10000 ** ((2 * (i + 1))/seq_len)))
+        self.pe = pe.to(device)
+        self.pe.requires_grad = False
 
     def forward(self, x):
-        # make embeddings relatively larger
-        x = x * math.sqrt(self.d_model)
-        #add constant to embedding
-        n_d_elems = x.size(0)
         with torch.no_grad():
-            x = x + self.pe[:n_d_elems,...]
+            # make embeddings relatively larger
+            x = x * math.sqrt(self.features)
+            #add constant to embedding
+            x = x + self.pe
         return x

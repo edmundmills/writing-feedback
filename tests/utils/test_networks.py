@@ -8,6 +8,9 @@ def test_positional_encoding():
     input_tokens = torch.rand(20, 768)
     pos_encoded = pos_encoder(input_tokens)
     assert(pos_encoded.size() == input_tokens.size())
+    input_tokens = input_tokens.unsqueeze(0)
+    pos_encoded = pos_encoder(input_tokens)
+    assert(pos_encoded.size() == input_tokens.size())
 
 
 class TestMode:

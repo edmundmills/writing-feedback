@@ -9,9 +9,9 @@ import torch
 import torch.nn as nn
 import wandb
 
-from core.d_elems import DElemEncoder
 from core.classification import ClassificationModel
 from core.ner import NERModel
+from utils.networks import PositionalEncoder
 from utils.render import plot_ner_output
 
 extractors = {}
@@ -73,8 +73,11 @@ class SegmentAttention(BaseFeaturesExtractor):
                                                    nhead=args.env.n_head,
                                                    batch_first=True)
         self.attention = nn.TransformerEncoder(encoder_layer, args.env.num_attention_layers).to(device)
+        self.positional_encoder = PositionalEncoder(features=18, seq_len=32, device=device)
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            observations = self.positional_encoder(observations)
         output = self.attention(observations)
         output = output.flatten(start_dim=1)
         return output
