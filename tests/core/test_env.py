@@ -32,7 +32,8 @@ class TestSequencewiseEnv:
     def test_act(self, seq_env):
         seq_env.reset()
         seq_env.continuous = False
-        state, reward, done, info = seq_env.step([0,0,1,2])
+        # state, reward, done, info = seq_env.step([0,0,1,2])
+        state, reward, done, info = seq_env.step(20)
         seq_env.continuous = True
         state, reward, done, info = seq_env.step(-.5)
         assert(isinstance(state, dict))

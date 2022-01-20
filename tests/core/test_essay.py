@@ -56,7 +56,6 @@ class TestEssay:
         pstrings = essay.random_pstrings(max_d_elems=2)
         assert(len(pstrings) <= 2)
        
-
     def test_correct_predictions(self, essay):
         preds = essay.correct_predictions
         assert(isinstance(preds, list))
@@ -64,6 +63,7 @@ class TestEssay:
         assert(len(preds) == len(essay.all_arguments()))
         assert(preds[0].start == 0)
         assert(preds[-1].stop == len(essay.words) - 1)
+  
 
 
 class TestGrade:

@@ -1,18 +1,17 @@
-from cProfile import label
 from csv import DictReader
-from lib2to3.pgen2 import token
+from collections import defaultdict
 import random
 from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset
 import tqdm
 
 from core.constants import data_path, essay_dir, label_file, argument_names, argument_types
 from core.essay import Essay
-from utils.grading import get_discourse_elements, get_label, get_labels, to_tokens
+from utils.grading import get_discourse_elements, get_labels, to_tokens
  
 class ClassificationDataset:
     def __init__(self, text:List[str], labels:torch.Tensor):
@@ -84,14 +83,16 @@ class EssayDataset:
         df = pd.read_csv(label_file, nrows=nrows)
         return list(essay_ids), df
 
+    def get_by_id(self, essay_id):
+        essay_text, essay_labels = self.essays[essay_id]
+        return Essay(essay_id, essay_text, essay_labels)
 
     def __len__(self):
         return len(self.essay_ids)
 
     def __getitem__(self, idx) -> Tuple[str, str, pd.DataFrame]:
         essay_id = self.essay_ids[idx]
-        essay_text, essay_labels = self.essays[essay_id]
-        return Essay(essay_id, essay_text, essay_labels)
+        return self.get_by_id(essay_id)
 
     def random_essay(self, num_essays=1) -> List:
         return random.choices(self, k=num_essays)
@@ -231,3 +232,24 @@ class EssayDataset:
         dataset = TensorDataset(text_tensor, label_tensor)
         print('Essay Feedback Dataset Created')
         return dataset
+
+    def make_bc_dataset(self, seqwise_env) -> TensorDataset:
+        states = defaultdict(list)
+        actions = []
+        for essay in tqdm.tqdm(self):
+            state = seqwise_env.reset(essay_id=essay.essay_id)
+            for pred in essay.correct_predictions:
+                action = len(pred)
+                actions.append(action)
+                next_state, reward, done, info = seqwise_env.step(action)
+                for k, v in state.items():
+                    states[k].append(v)
+                state = next_state
+
+        dataset = TensorDataset(
+            torch.LongTensor(np.array(states['seg_tokens'])),
+            torch.LongTensor(np.array(states['class_tokens'])),
+            torch.FloatTensor(np.array(states['ner_probs'])),
+            torch.FloatTensor(actions)
+        )
+        return dataset            

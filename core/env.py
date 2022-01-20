@@ -96,13 +96,15 @@ class SegmentationEnv(gym.Env):
         return self.essay.grade(predictions)['f_score']
 
 
-    def reset(self):
-        if self.essay:
-            print(self.current_state_value() - self.env_init_value)
-        self.essay = self.dataset.random_essay()[0]
+    def reset(self, essay_id=None):
+        if essay_id is None:
+            self.essay = self.dataset.random_essay()[0]
+        else:
+            self.essay = self.dataset.get_by_id(essay_id)
         self.predictions = []
         self.done = False
         self.ner_probs = self.dataset.ner_probs[self.essay.essay_id].squeeze(0).numpy()
+        self.steps = 0
         self.env_init_value = self.current_state_value()
         return self.state
 
@@ -116,23 +118,25 @@ class SequencewiseEnv(SegmentationEnv):
         if args.continuous:
             self.action_space = spaces.Box(-1, 1, (1,))
         else:
-            self.action_space = spaces.MultiDiscrete([4,4,4,4])
+            self.action_space = spaces.Discrete(self.action_space_dim)
 
-    def reset(self):
+    def reset(self, *args, **kwargs):
         self.word_idx = 0
-        return super().reset()
+        return super().reset(*args, **kwargs)
 
     def step(self, action:int):
         if self.continuous:
             word_step = int((action + 1) * self.action_space_dim/2 + 1)
         else:
-            word_step = int(2 + action[0] + action[1] * 4 + action[2] * (4**2) + action[3] * (4**3))
+            word_step = int(action)
         init_value = self.current_state_value()
         pred_end = min(self.word_idx + word_step - 1, len(self.essay.words) - 1)
         self.predictions.append(Prediction(self.word_idx, pred_end, 0, self.essay.essay_id))
         self.word_idx += word_step
-        if self.word_idx + 1 >= min(len(self.essay.words), self.max_words):
+        self.steps += 1
+        if self.word_idx + 1 >= min(len(self.essay.words), self.max_words) or self.steps >= self.max_d_elems:
             self.done = True
+            print(self.steps)
         reward = self.current_state_value() - init_value
         info = {}
         return self.state, reward, self.done, info
@@ -142,34 +146,34 @@ class SequencewiseEnv(SegmentationEnv):
 class SplitterEnv(SegmentationEnv):
     def __init__(self, essay_dataset, env_args) -> None:
         super().__init__(essay_dataset, env_args)
-        self.splits = np.zeros(self.max_words, dtype=np.int8)
+        self._seg_tokens = np.zeros(self.max_words, dtype=np.int8)
         self.action_space = spaces.Discrete(self.max_words)
 
-    def reset(self):
-        super().reset()
+    @property
+    def seg_tokens(self):
+        return self._seg_tokens
+
+    def reset(self, *args, **kwargs):
+        super().reset(*args, **kwargs)
         self.essay_num_words = min(self.max_words, len(self.essay.words))
-        self.splits = np.concatenate((
+        self._seg_tokens = np.concatenate((
             np.zeros(self.essay_num_words, dtype=np.int8),
             -np.ones(self.max_words - self.essay_num_words, dtype=np.int8)))
-        self.splits[0] == 1
+        self._seg_tokens[0] == 1
         self.predictions = self.pred_tokens_to_preds()
         self.env_init_value = self.current_state_value()
         self.steps = 0
         return self.state
 
-    @property
-    def prediction_tokens(self):
-        return self.splits
-
     def pred_tokens_to_preds(self):
         start = 0
         preds = []
-        for idx, x in enumerate(self.prediction_tokens[1:], start=1):
+        for idx, x in enumerate(self.seg_tokens[1:], start=1):
             if x == -1:
-                preds.append(Prediction(start, idx - 1, -1, self.essay.essay_id))
+                preds.append(Prediction(start, idx - 1, 0, self.essay.essay_id))
                 break
             elif x == 1:
-                preds.append(Prediction(start, idx, -1, self.essay.essay_id))
+                preds.append(Prediction(start, idx, 0, self.essay.essay_id))
                 start = idx + 1
         return preds              
 
@@ -177,7 +181,7 @@ class SplitterEnv(SegmentationEnv):
         init_value = self.current_state_value()
         self.steps += 1
         if int(action) < self.essay_num_words - 1:
-            self.splits[int(action)] = 1
+            self._seg_tokens[int(action)] = 1
             self.predictions = self.pred_tokens_to_preds()
         self.done = (int(action) == self.max_words - 1) or self.steps >= self.max_d_elems - 1
         reward = self.current_state_value() - init_value
@@ -191,8 +195,8 @@ class DividerEnv(SegmentationEnv):
         super().__init__(essay_dataset, env_args)
         self.action_space = spaces.MultiDiscrete([3]*(self.max_d_elems - 1) + [2])
 
-    def reset(self):
-        super().reset()
+    def reset(self, *args, **kwargs):
+        super().reset(*args, **kwargs)
         self.predictions = self._initial_predictions()
         self.env_init_value = self.current_state_value()
         self.steps = 0

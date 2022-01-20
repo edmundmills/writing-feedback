@@ -117,5 +117,13 @@ class TestEssayDataset:
         assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
         assert(essay_feedback_dataset[0][1].size() == (32, 1))
 
+    def test_make_bc_dataset(self, dataset_with_ner_probs, seq_env):
+        dataset = dataset_with_ner_probs.make_bc_dataset(seq_env)
+        sample = dataset[0]
+        assert(isinstance(dataset, TensorDataset))
+        assert(sample[0].size() == (1024,))
+        assert(sample[1].size() == (32, 8))
+        assert(sample[2].size() == (1024, 9))
+        assert(sample[3].size() == ())
 
 

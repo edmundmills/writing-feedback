@@ -14,6 +14,9 @@ class Prediction:
         self.label = label
         self.essay_id = essay_id
 
+    def __len__(self):
+        return len(self.word_idxs)
+
     @property
     def word_idxs(self):
         return list(range(self.start, self.stop + 1))
