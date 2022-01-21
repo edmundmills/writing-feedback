@@ -3,8 +3,7 @@ import pytest
 from stable_baselines3.common.env_checker import check_env
 
 from core.env import *
-from core.dataset import Essay
-from core.segmentation import make_agent
+from core.rl import make_agent
 
 
 class TestSegmentationEnv:
@@ -13,108 +12,6 @@ class TestSegmentationEnv:
         assert(len(env.get_attr('max_words')) == 2)
         assert(sum(len(ds) for ds in env.get_attr('dataset')) == len(dataset_with_ner_probs))
         make_agent(base_args, env)
-
-
-class TestSequencewiseEnv:
-    def test_init(self, dataset_with_ner_probs, seqwise_args):
-        seqwise_args.continuous = False
-        env = SegmentationEnv.make(1, dataset_with_ner_probs, seqwise_args)
-        check_env(env)
-        seqwise_args.continuous = True
-        env = SegmentationEnv.make(1, dataset_with_ner_probs, seqwise_args)
-        check_env(env)
-
-    def test_reset(self, seq_env):
-        state = seq_env.reset()
-        assert(isinstance(state, dict))
-        assert(not seq_env.done)
-    
-    def test_act(self, seq_env):
-        seq_env.reset()
-        seq_env.continuous = False
-        # state, reward, done, info = seq_env.step([0,0,1,2])
-        state, reward, done, info = seq_env.step(20)
-        seq_env.continuous = True
-        state, reward, done, info = seq_env.step(-.5)
-        assert(isinstance(state, dict))
-        assert(isinstance(reward, float))
-        assert(not done)
-
-
-class TestSplitterEnv:
-    def test_init(self, dataset_with_ner_probs, splitter_args):
-        env = SegmentationEnv.make(1, dataset_with_ner_probs, splitter_args)
-        check_env(env)
-
-    def test_reset(self, splitter_env):
-        state = splitter_env.reset()
-        assert(isinstance(state, dict))
-        assert(not splitter_env.done)
-    
-    def test_act(self, splitter_env):
-        splitter_env.reset()
-        init_preds = splitter_env.pred_tokens_to_preds()
-        state, reward, done, info = splitter_env.step(100)
-        preds = splitter_env.pred_tokens_to_preds()
-        assert(len(init_preds) == 1)
-        assert(len(preds) == 2)
-        assert(isinstance(state, dict))
-        assert(isinstance(preds[0], Prediction))
-        assert(isinstance(reward, float))
-        assert(not done)
-
-
-class TestDividerEnv:
-    def test_init(self, dataset_with_ner_probs, divider_args):
-        env = SegmentationEnv.make(1, dataset_with_ner_probs, divider_args)
-        check_env(env)
-        env = SegmentationEnv.make(1, dataset_with_ner_probs, divider_args)
-        check_env(env)
-
-    def test_reset(self, divider_env):
-        state = divider_env.reset()
-        assert(isinstance(state, dict))
-        assert(not divider_env.done)
-        assert(len(divider_env.predictions) == divider_env.max_d_elems)
-        for idx in range(divider_env.max_d_elems - 1):
-            pred1 = divider_env.predictions[idx]
-            pred2 = divider_env.predictions[idx + 1]
-            assert(pred1.stop + 1 == pred2.start)
-    
-    def test_act(self, divider_env):
-        divider_env.reset()
-        action = np.zeros(32)
-        action[2] = 2
-        pred1 = divider_env.predictions[2]
-        pred2 = divider_env.predictions[3]
-        stop, start = pred1.stop, pred2.start
-        state, reward, done, info = divider_env.step(action)
-        pred1 = divider_env.predictions[2]
-        pred2 = divider_env.predictions[3]
-        assert(isinstance(state, dict))
-        assert(isinstance(reward, float))
-        assert(stop + 1 == pred1.stop)
-        assert(start + 1 == pred2.start)
-        assert(not done)
-
-
-class TestWordwiseEnv:
-    def test_init(self, dataset_with_ner_probs, wordwise_args):
-        env = SegmentationEnv.make(1, dataset_with_ner_probs, wordwise_args)
-        check_env(env)
-
-    def test_reset(self, word_env):
-        state = word_env.reset()
-        assert(isinstance(state, dict))
-        assert(not word_env.done)
-    
-    def test_act(self, word_env):
-        word_env.reset()
-        action = np.zeros(1 + 1024 + 32)
-        state, reward, done, info = word_env.step(action)
-        assert(isinstance(state, dict))
-        assert(isinstance(reward, float))
-        assert(not done)
 
 
 class TestAssignmentEnv:

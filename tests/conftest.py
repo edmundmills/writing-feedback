@@ -1,3 +1,4 @@
+from lib2to3.pgen2 import token
 import random
 from typing import List
 
@@ -7,12 +8,12 @@ import pickle
 import pytest
 import torch
 
-from core.d_elems import DElemTokenizer
 from core.dataset import EssayDataset
-from core.env import AssignmentEnv, DividerEnv, SequencewiseEnv, SplitterEnv, WordwiseEnv
+from core.env import AssignmentEnv
 from core.essay import Prediction
-from core.classification import ClassificationModel
+from core.ner import NERTokenizer
 from utils.config import get_config
+from utils.constants import *
 
 random.seed(0)
 np.random.seed(0)
@@ -22,8 +23,6 @@ torch.cuda.manual_seed_all(0)
 max_d_elems = 32
 encoded_sentence_length = 768
 encoded_essay_length = 1024
-ner_probs_path = 'data/ner_probs.pkl'
-
 
 @pytest.fixture
 def fix_seed():
@@ -80,37 +79,6 @@ class DElemEncoder:
         return torch.rand(max_d_elems, encoded_sentence_length + 1)
 
 
-class NERTokenized:
-    def __init__(self, input_ids, attention_mask) -> None:
-        self.input_ids = input_ids
-        self.attention_mask = attention_mask
-
-    def __getitem__(self, attribute):
-        if attribute == 'input_ids':
-            return self.input_ids
-        elif attribute == 'attention_mask':
-            return self.attention_mask
-        else:
-            raise KeyError()
-    
-    def word_ids(self):
-        return list(range(len(self.input_ids)))
-
-
-class NERTokenizer:
-    def __init__(self) -> None:
-        self.max_tokens = encoded_essay_length
-        
-    def encode(self, text:str):
-        encoded_text = torch.LongTensor(list(range(encoded_essay_length))).unsqueeze(0)
-        attention_mask = torch.ones(1, encoded_essay_length, dtype=torch.uint8)
-        word_ids = list(range(-1, encoded_text.size(1) - 1))
-        word_id_tensor = torch.LongTensor(
-            [word_id if word_id is not None else -1 for word_id in word_ids]
-        ).unsqueeze(0)
-        return {'word_ids': word_ids, 'input_ids': encoded_text,
-                'attention_mask': attention_mask, 'word_id_tensor': word_id_tensor}
-
 class NERModel:
     def __init__(self, *args, **kwargs) -> None:
         self.seg_only = False
@@ -125,14 +93,9 @@ def ner_probs():
     return next(iter(ner_probs.values()))
 
 @pytest.fixture
-def d_elem_tokenizer():
-    kls_args = get_config('base').kls
-    d_elem_tokenizer = DElemTokenizer(kls_args)
-    return d_elem_tokenizer
-
-@pytest.fixture
 def ner_tokenizer():
-    return NERTokenizer()
+    ner_args = get_config('base').ner
+    return NERTokenizer(ner_args)
 
 @pytest.fixture
 def ner_model():
@@ -141,7 +104,10 @@ def ner_model():
 
 @pytest.fixture
 def encoded_essay():
-    return NERTokenizer().encode('')
+    ner_args = get_config('base').ner
+    tokenizer = NERTokenizer(ner_args)
+    essay = EssayDataset(1)[0]
+    return tokenizer.encode(essay.text)
 
 
 @pytest.fixture
@@ -160,22 +126,14 @@ def encoded_preds():
     return torch.LongTensor(preds).unsqueeze(0)
 
 
-# MODELS
-
-@pytest.fixture
-def kls_model():
-    args = get_config('base')
-    args.kls.num_attention_layers = 1
-    return ClassificationModel(args.kls, d_elem_encoder=DElemEncoder())
 
 # ENVS
 
 @pytest.fixture
 def dataset_with_ner_probs():
-    ner_tokenizer = NERTokenizer()
-    ner_model = NERModel()
     dataset = EssayDataset(n_essays=5)
-    dataset.get_ner_probs(ner_tokenizer, ner_model)
+    with open(ner_probs_path, 'rb') as saved_file:
+        dataset.ner_probs = pickle.load(saved_file)
     return dataset
 
 @pytest.fixture
@@ -190,80 +148,7 @@ def assign_env():
     dataset = EssayDataset(n_essays=5)
     with open(ner_probs_path, 'rb') as saved_file:
         dataset.ner_probs = pickle.load(saved_file)
-    dataset = dataset.split([1])[0]
     env = AssignmentEnv(dataset, args.env)
-    return env
-
-@pytest.fixture
-def splitter_args():
-    args = get_config('base', args=['env=splitter'])
-    env_args = args.env
-    return env_args
-
-@pytest.fixture
-def splitter_env():
-    dataset = EssayDataset(n_essays=5)
-    encoder = NERTokenizer()
-    args = get_config('base', args=['env=splitter'])
-    args.kls.num_attention_layers = 1
-    d_elem_tokenizer = DElemTokenizer(args.kls)
-    ner_model = NERModel()
-    dataset.get_ner_probs(encoder, ner_model)
-    env = SplitterEnv(dataset, args.env)
-    return env
-
-@pytest.fixture
-def seqwise_args():
-    args = get_config('base', args=['env=seqwise'])
-    env_args = args.env
-    return env_args
-
-@pytest.fixture
-def seq_env():
-    dataset = EssayDataset(n_essays=5)
-    encoder = NERTokenizer()
-    args = get_config('base', args=['env=seqwise'])
-    args.kls.num_attention_layers = 1
-    d_elem_tokenizer = DElemTokenizer(args.kls)
-    ner_model = NERModel()
-    dataset.get_ner_probs(encoder, ner_model)
-    env = SequencewiseEnv(dataset, args.env)
-    return env
-
-@pytest.fixture
-def divider_args():
-    args = get_config('base', args=['env=divider'])
-    env_args = args.env
-    return env_args
-
-@pytest.fixture
-def divider_env():
-    dataset = EssayDataset(n_essays=5)
-    encoder = NERTokenizer()
-    args = get_config('base', args=['env=divider'])
-    args.kls.num_attention_layers = 1
-    d_elem_tokenizer = DElemTokenizer(args.kls)
-    ner_model = NERModel()
-    dataset.get_ner_probs(encoder, ner_model)
-    env = DividerEnv(dataset, args.env)
-    return env
-
-@pytest.fixture
-def wordwise_args():
-    args = get_config('base', args=['env=wordwise'])
-    env_args = args.env
-    return env_args
-
-@pytest.fixture
-def word_env():
-    args = get_config('base', args=['env=wordwise'])
-    dataset = EssayDataset(n_essays=5)
-    encoder = NERTokenizer()
-    args.kls.num_attention_layers = 1
-    d_elem_tokenizer = DElemTokenizer(args.kls)
-    ner_model = NERModel()
-    dataset.get_ner_probs(encoder, ner_model)
-    env = WordwiseEnv(dataset, args.env)
     return env
 
 

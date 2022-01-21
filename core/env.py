@@ -3,48 +3,26 @@ from functools import partial
 import gym
 from gym import spaces
 import numpy as np
-from pandas import merge
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 import torch
 
-from core.constants import argument_names, argument_types
-from core.dataset import EssayDataset
+from utils.constants import de_num_to_type, de_type_to_num
 from core.essay import Prediction
-from core.segmentation import segment_ner_probs
-from utils.text import to_sentences
-from utils.grading import to_tokens
+from core.predicter import Predicter
 from utils.render import plot_ner_output
 
 
 env_classes = {}
 
-def register_env(cls):
-    env_classes.update({cls.__name__: cls})
-    def wrapper(*args, **kwargs):
-        return cls(*args, **kwargs)
-    return wrapper
-
 
 class SegmentationEnv(gym.Env):
-    def __init__(self, essay_dataset, env_args) -> None:
-        super().__init__()
-        self.dataset = essay_dataset
-        self.max_d_elems = env_args.num_d_elems
-        self.max_words = env_args.num_words
-        self.essay = None
-        self.grade_classifications = env_args.grade_classifications
-        self.ner_probs_space = spaces.Box(low=0, high=1,
-                                          shape=(self.max_words, 9))
-        self.segmentation_tokens_space = spaces.Box(low=-1, high=1,
-                                                    shape=(self.max_words,))
-        self.classification_token_space = spaces.Box(low=-1, high=1,
-                                                     shape=(self.max_d_elems, 8))
-        self.observation_space = spaces.Dict({
-            'ner_probs': self.ner_probs_space,
-            'seg_tokens': self.segmentation_tokens_space,
-            'class_tokens': self.classification_token_space
-        })
+    @staticmethod
+    def register(cls):
+        env_classes.update({cls.__name__: cls})
+        def wrapper(*args, **kwargs):
+            return cls(*args, **kwargs)
+        return wrapper
 
     @staticmethod
     def make(n_envs, essay_dataset, env_args):
@@ -68,10 +46,25 @@ class SegmentationEnv(gym.Env):
         print('Vectorized env created')
         return venv
 
-    @property
-    def seg_tokens(self):
-        return to_tokens(self.predictions,
-                         num_words=self.max_words)[0]
+
+    def __init__(self, essay_dataset, env_args) -> None:
+        super().__init__()
+        self.dataset = essay_dataset
+        self.max_d_elems = env_args.num_d_elems
+        self.max_words = env_args.num_words
+        self.essay = None
+        self.grade_classifications = env_args.grade_classifications
+        self.ner_probs_space = spaces.Box(low=0, high=1,
+                                          shape=(self.max_words, 9))
+        self.segmentation_tokens_space = spaces.Box(low=-1, high=1,
+                                                    shape=(self.max_words,))
+        self.classification_token_space = spaces.Box(low=-1, high=1,
+                                                     shape=(self.max_d_elems, 8))
+        self.observation_space = spaces.Dict({
+            'ner_probs': self.ner_probs_space,
+            'seg_tokens': self.segmentation_tokens_space,
+            'class_tokens': self.classification_token_space
+        })
 
     @property
     def class_tokens(self):
@@ -108,7 +101,7 @@ class SegmentationEnv(gym.Env):
             labels = [pred.label for pred in self.predictions]
         predictions = [
             {'id': self.essay.essay_id,
-             'class': argument_names[label],
+             'class': de_num_to_type[label],
              'predictionstring': prediction.pstring} for (prediction, label)
             in zip(self.predictions, labels)
         ]
@@ -128,168 +121,7 @@ class SegmentationEnv(gym.Env):
         return self.state
 
 
-@register_env
-class SequencewiseEnv(SegmentationEnv):
-    def __init__(self, essay_dataset, args) -> None:
-        super().__init__(essay_dataset, args)
-        self.continuous = args.continuous
-        self.action_space_dim = args.action_space_dim
-        if args.continuous:
-            self.action_space = spaces.Box(-1, 1, (1,))
-        else:
-            self.action_space = spaces.Discrete(self.action_space_dim)
-
-    def reset(self, *args, **kwargs):
-        self.word_idx = 0
-        return super().reset(*args, **kwargs)
-
-    def step(self, action:int):
-        if self.continuous:
-            word_step = int((action + 1) * self.action_space_dim/2 + 1)
-        else:
-            word_step = int(action)
-        init_value = self.current_state_value()
-        pred_end = min(self.word_idx + word_step - 1, len(self.essay.words) - 1)
-        self.predictions.append(Prediction(self.word_idx, pred_end, 0, self.essay.essay_id))
-        self.word_idx += word_step
-        self.steps += 1
-        if self.word_idx + 1 >= min(len(self.essay.words), self.max_words) or self.steps >= self.max_d_elems:
-            self.done = True
-            print(self.steps)
-        reward = self.current_state_value() - init_value
-        info = {}
-        if self.done:
-            info.update({'Score': self.current_state_value()})
-        return self.state, reward, self.done, info
-
-
-@register_env
-class SplitterEnv(SegmentationEnv):
-    def __init__(self, essay_dataset, env_args) -> None:
-        super().__init__(essay_dataset, env_args)
-        self._seg_tokens = np.zeros(self.max_words, dtype=np.int8)
-        self.action_space = spaces.Discrete(self.max_words)
-
-    @property
-    def seg_tokens(self):
-        return self._seg_tokens
-
-    def reset(self, *args, **kwargs):
-        super().reset(*args, **kwargs)
-        self.essay_num_words = min(self.max_words, len(self.essay.words))
-        self._seg_tokens = np.concatenate((
-            np.zeros(self.essay_num_words, dtype=np.int8),
-            -np.ones(self.max_words - self.essay_num_words, dtype=np.int8)))
-        self._seg_tokens[0] == 1
-        self.predictions = self.pred_tokens_to_preds()
-        self.env_init_value = self.current_state_value()
-        self.steps = 0
-        return self.state
-
-    def pred_tokens_to_preds(self):
-        start = 0
-        preds = []
-        for idx, x in enumerate(self.seg_tokens[1:], start=1):
-            if x == -1:
-                preds.append(Prediction(start, idx - 1, 0, self.essay.essay_id))
-                break
-            elif x == 1:
-                preds.append(Prediction(start, idx, 0, self.essay.essay_id))
-                start = idx + 1
-        return preds              
-
-    def step(self, action):
-        init_value = self.current_state_value()
-        self.steps += 1
-        if int(action) < self.essay_num_words - 1:
-            self._seg_tokens[int(action)] = 1
-            self.predictions = self.pred_tokens_to_preds()
-        self.done = (int(action) == self.max_words - 1) or self.steps >= self.max_d_elems - 1
-        reward = self.current_state_value() - init_value
-        info = {}
-        return self.state, reward, self.done, info
-
-
-@register_env
-class DividerEnv(SegmentationEnv):
-    def __init__(self, essay_dataset, env_args) -> None:
-        super().__init__(essay_dataset, env_args)
-        self.action_space = spaces.MultiDiscrete([3]*(self.max_d_elems - 1) + [2])
-
-    def reset(self, *args, **kwargs):
-        super().reset(*args, **kwargs)
-        self.predictions = self._initial_predictions()
-        self.env_init_value = self.current_state_value()
-        self.steps = 0
-        return self.state
-
-    def step(self, action):
-        init_value = self.current_state_value()
-        distance = 4
-        self.steps += 1
-        for idx, act in enumerate(action[:-2]):
-            new_stop = min(self.max_words - 1, self.predictions[idx].stop + (distance * (int(act) - 1)))
-            self.predictions[idx].stop = new_stop
-            new_start = max(0, self.predictions[idx+1].start + (distance * (int(act) - 1)))
-            self.predictions[idx+1].start = new_start
-        self.done = bool(action[-1]) and self.steps >= 10
-        reward = self.current_state_value() - init_value
-        info = {}
-        return self.state, reward, self.done, info
-
-    def _initial_predictions(self):
-        preds = []
-        start = 0
-        for _ in range(self.max_d_elems):
-            label = -1
-            stop = min(start + self.max_words // self.max_d_elems, self.max_words - 1)
-            preds.append(Prediction(start, stop, label, self.essay.essay_id))
-            start = stop + 1
-        preds[-1].stop = self.max_words - 1
-        return preds
-
-
-@register_env
-class WordwiseEnv(SegmentationEnv):
-    def __init__(self, essay_dataset, env_args) -> None:
-        super().__init__(essay_dataset, env_args)
-        self.action_space = spaces.MultiDiscrete(
-            [2] + [2] * self.max_words + [len(argument_names)] * self.max_d_elems)
-        self.observation_space = spaces.Dict({
-            'ner_probs': self.ner_probs_space,
-            'prev_segmentation': spaces.Box(low=0, high=1, shape=(self.max_words,)),
-            'prev_d_elem_tokens': spaces.Box(
-                low=0, high=100000,
-                shape=(self.max_d_elems, len(argument_names)))
-        })
-
-    @property
-    def state(self):
-        state = {
-            'ner_probs': self.ner_probs,
-            'prev_segmentation': self.prev_segmentation,
-            'prev_d_elem_tokens': self.prev_d_elem_tokens,
-        }
-        return state
-
-    def step(self, action):
-        init_value = self.current_state_value()
-        self.done = bool(action[0])
-        self.prev_segmentation = action[1:self.max_words+1]
-        classifications = action[self.max_words+1:]
-        # make predictions
-        # save prev_d_elem_tokens
-
-        reward = self.current_state_value() - init_value
-        info = {}
-        return self.state, reward, self.done, info
-
-    def reset(self):
-        self.prev_segmentation = np.zeros(self.max_words)
-        self.prev_d_elem_tokens = np.zeros((self.max_d_elems, len(argument_names)))
-        return super().reset()
-
-@register_env
+@SegmentationEnv.register
 class AssignmentEnv(SegmentationEnv):
     def __init__(self, essay_dataset, env_args) -> None:
         super().__init__(essay_dataset, env_args)
@@ -311,7 +143,7 @@ class AssignmentEnv(SegmentationEnv):
 
     def reset(self, *args, **kwargs):
         super().reset(*args, **kwargs)
-        self.segmented_ner_probs = segment_ner_probs(self.ner_probs)
+        self.segmented_ner_probs = Predicter().segment_ner_probs(self.ner_probs)
         return self.state
 
     @property
@@ -366,8 +198,8 @@ class AssignmentEnv(SegmentationEnv):
         pred = Prediction(start, stop, 0, self.essay_id)
         self.predictions.append(pred)
         potential_rewards = []
-        for argument_name in argument_names:
-            self.predictions[-1].label = argument_types[argument_name]
+        for argument_name in de_num_to_type:
+            self.predictions[-1].label = de_type_to_num[argument_name]
             potential_rewards.append(
                 self.current_state_value() - init_value
             )
@@ -396,7 +228,7 @@ class AssignmentEnv(SegmentationEnv):
 
     def _assign(self, label):
         init_value = self.current_state_value()
-        label = argument_types[label]
+        label = de_type_to_num[label]
         pred_len = self.segment_lens[self.cur_seg_idx]
         start = self.word_idx
         stop = start + pred_len - 1

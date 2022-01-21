@@ -1,10 +1,36 @@
 
+from collections import defaultdict
+
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader, RandomSampler, TensorDataset
+import tqdm
 
 from utils.networks import Model, MLP, Mode
+
+
+# def make_bc_dataset(essay_dataset, seqwise_env) -> TensorDataset:
+#     states = defaultdict(list)
+#     actions = []
+#     for essay in tqdm.tqdm(essay_dataset):
+#         state = seqwise_env.reset(essay_id=essay.essay_id)
+#         for pred in essay.correct_predictions:
+#             action = len(pred)
+#             actions.append(action)
+#             next_state, reward, done, info = seqwise_env.step(action)
+#             for k, v in state.items():
+#                 states[k].append(v)
+#             state = next_state
+
+#     dataset = TensorDataset(
+#         torch.LongTensor(np.array(states['seg_tokens'])),
+#         torch.LongTensor(np.array(states['class_tokens'])),
+#         torch.FloatTensor(np.array(states['ner_probs'])),
+#         torch.FloatTensor(actions)
+#     )
+#     return dataset            
+
 
 class BCAgent(Model):
     def __init__(self, args):

@@ -1,6 +1,5 @@
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import random
@@ -9,9 +8,12 @@ import torch
 import wandb
 
 from core.dataset import EssayDataset
+from core.env import SegmentationEnv
+from core.essay import Prediction
 from core.predicter import Predicter
 from utils.config import parse_args, get_config
-from utils.render import plot_ner_output  
+from utils.postprocessing import link_evidence, proba_thresh, min_thresh
+from utils.render import plot_ner_output
 
 
 if __name__ == '__main__':
@@ -28,17 +30,20 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    dataset = EssayDataset(10)
+    dataset = EssayDataset(100)
+
+
     ner_probs_path = 'data/ner_probs.pkl'
     with open(ner_probs_path, 'rb') as saved_file:
         dataset.ner_probs = pickle.load(saved_file)
     print(f'NER Probs Loaded from {ner_probs_path}')
 
-    essay = dataset[0]
-    print(essay.essay_id, len(essay.words))
-    for pred in essay.correct_predictions:
-        print(pred)
-    ner_probs = dataset.ner_probs[essay.essay_id]
-    segments = Predicter().segment_ner_probs(ner_probs)
-    plot_ner_output(ner_probs)
-    plot_ner_output(segments)
+    predicter = Predicter()
+
+    scores = []
+    for essay in dataset:
+        _preds, metrics = predicter.by_heuristics(essay)
+        score = metrics['f_score']
+        scores.append(score)
+    avg_score = sum(scores) / len(scores)
+    print(avg_score)

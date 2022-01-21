@@ -2,8 +2,9 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from core.constants import essay_dir, argument_names, argument_types
-from utils.grading import get_labels, ismatch, prediction_string, start_num, end_num
+from utils.constants import essay_dir, de_num_to_type, de_type_to_num
+from utils.pstrings import ismatch, prediction_string, start_num, end_num
+
 
 class Prediction:
     def __init__(self, start, stop, label, essay_id) -> None:
@@ -27,15 +28,16 @@ class Prediction:
 
     @property
     def argument_name(self):
-        return argument_names[self.label]
+        return de_num_to_type[self.label]
 
     def formatted(self):
         return {'id': self.essay_id,
-                'class': argument_names[self.label],
+                'class': de_num_to_type[self.label],
                 'predictionstring': self.pstring}
 
     def __repr__(self):
         return str(self.formatted())
+
 
 class Essay:
     def __init__(self, essay_id, text, labels) -> None:
@@ -47,8 +49,27 @@ class Essay:
     def path(self):
         return essay_dir / f'{self.essay_id}.txt'
 
-    def get_labels(self, predictions):
-        return get_labels([pred.pstring for pred in predictions], self)
+    def _get_label(self, pstring):
+        for label, labelname in enumerate(de_num_to_type):
+            prediction = {'id': self.essay_id,
+                        'class': labelname,
+                        'predictionstring': pstring}
+            grading_data = self.grade([prediction])
+            if grading_data['true_positives'] == 1:
+                return label
+        return 0
+
+    def get_labels(self, predictions, num_d_elems=None):
+        if not isinstance(predictions, list):
+            predictions = [predictions]
+        if len(predictions) > 0 and isinstance(predictions[0], Prediction):
+            pstrings = (pred.pstring for pred in predictions)
+        else:
+            pstrings = predictions
+        labels = [self._get_label(pstring) for pstring in pstrings]
+        if num_d_elems:
+            labels = labels[:num_d_elems] + [-1] * max(0, num_d_elems - len(labels))
+        return labels
 
     def grade(self, predictions:List[Dict]):
         predictions = [prediction for prediction in predictions
@@ -85,11 +106,11 @@ class Essay:
     @property
     def correct_predictions(self) -> List[Prediction]:
         preds = [Prediction(start_num(pstring), end_num(pstring),
-                            argument_types[d_type], self.essay_id)
-                 for _text, d_type, pstring in self.all_arguments()]
+                            de_type_to_num[d_type], self.essay_id)
+                 for _text, d_type, pstring in self._all_d_elems()]
         return preds            
 
-    def all_arguments(self) -> List[Tuple]:
+    def _all_d_elems(self) -> List[Tuple]:
         arguments = []
         word_idx = 0
         for _, row in self.labels.iterrows():
@@ -103,78 +124,14 @@ class Essay:
             arguments.append((self.words[word_idx:], 'None', prediction_string(word_idx, len(self.words) + 1)))
         return arguments
 
-    def polarity_pairs(self):
-        text_pairs = []
-        labels = []
-        essay_arguments = self.labels[['discourse_type', 'discourse_text']].values.tolist()
-        lead = None
-        position = None
-        conclusion = None
-        claims = []
-        counterclaims = []
-        evidences = []
-        prev_arg = None
-        for arg_type, arg_text in essay_arguments:
-            if arg_type == 'Lead':
-                lead = arg_text
-            elif arg_type == 'Position':
-                position = arg_text
-            elif arg_type == 'Concluding Statement':
-                conclusion = arg_text
-            elif arg_type == 'Claim':
-                claims.append(arg_text)
-            elif arg_type == 'Counterclaim':
-                counterclaims.append(arg_text)
-            elif arg_type == 'Evidence':
-                evidences.append(arg_text)
-            if prev_arg is not None:
-                if prev_arg[0] == 'Claim' and arg_type == 'Evidence':
-                    text_pairs.append((prev_arg[1], arg_text))
-                    labels.append(1)
-                # elif prev_arg[0] == 'Claim' and arg_type == 'Counterclaim':
-                #     text_pairs.append((prev_arg[1], arg_text))
-                #     labels.append(-1)
-                elif prev_arg[0] == 'Counterclaim' and arg_type == 'Rebuttal':
-                    text_pairs.append((prev_arg[1], arg_text))
-                    labels.append(-1)
-            prev_arg = arg_type, arg_text
-        if position:
-            text_pairs.extend(((position, claim) for claim in claims))
-            labels.extend(1 for _ in claims)
-            # text_pairs.extend(((evidence, position) for evidence in evidences))
-            # labels.extend(0 for _ in evidences)
-            text_pairs.extend(((position, claim) for claim in counterclaims))
-            labels.extend(-1 for _ in counterclaims)
-        if conclusion:
-            # text_pairs.extend(((conclusion, claim) for claim in claims))
-            # labels.extend(1 for _ in claims)
-            text_pairs.extend(((conclusion, claim) for claim in counterclaims))
-            labels.extend(-1 for _ in counterclaims)
-            text_pairs.extend(((evidence, conclusion) for evidence in evidences))
-            labels.extend(0 for _ in evidences)
-        # if evidences and len(evidences) >= 2:
-        #     text_pairs.extend(permutations(evidences, 2))
-        #     labels.extend(0 for _ in permutations(evidences, 2))
-        for counterclaim in counterclaims:
-            text_pairs.extend((claim, counterclaim) for claim in claims)
-            labels.extend(-1 for _ in claims)
-            text_pairs.extend((counterclaim, claim) for claim in claims)
-            labels.extend(-1 for _ in claims)
-        if lead:
-            text_pairs.extend(((evidence, lead) for evidence in evidences))
-            labels.extend(0 for _ in evidences)
-            # text_pairs.extend(((lead, evidence) for evidence in evidences))
-            # labels.extend(0 for _ in evidences)
-        return text_pairs, labels
-
     def random_pstrings(self, max_d_elems=None) -> List[str]:
         pstrings = []
         i = 0
-        n_words = len(self.words)
-        while i < n_words and (max_d_elems is None or len(pstrings) < max_d_elems):
+        num_words = len(self.words)
+        while i < num_words and (max_d_elems is None or len(pstrings) < max_d_elems):
             n = int(np.random.poisson(lam=3) * 15/3)
             n = max(n, 5)
-            pstring = prediction_string(i, min(i+n, n_words - 1))
+            pstring = prediction_string(i, min(i+n, num_words - 1))
             pstrings.append(pstring)
             i += n + 1
         return pstrings

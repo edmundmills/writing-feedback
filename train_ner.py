@@ -35,8 +35,8 @@ if __name__ == '__main__':
 
     tokenizer = NERTokenizer(args.ner)
 
-    train = train.make_ner_dataset(tokenizer, seg_only=args.ner.segmentation_only)
-    val = val.make_ner_dataset(tokenizer, seg_only=args.ner.segmentation_only)
+    train = tokenizer.make_ner_dataset(train, seg_only=args.ner.segmentation_only)
+    val = tokenizer.make_ner_dataset(val, seg_only=args.ner.segmentation_only)
 
     model = NERModel(args.ner)
 

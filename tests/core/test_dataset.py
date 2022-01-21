@@ -26,23 +26,6 @@ class TestEssayDataset:
         assert(isinstance(random_span[0], str))
         assert(len(random_span[0].split()) == 5)
 
-    def test_make_arg_class_dataset(self, fix_seed, dataset):
-        class_dataset = dataset.make_arg_classification_dataset()
-        assert(isinstance(class_dataset, ClassificationDataset))
-        assert(isinstance(class_dataset[0][0], str))
-        assert(isinstance(class_dataset[0][1], torch.Tensor))
-        assert(len(class_dataset) == len(class_dataset.text))
-        assert(len(class_dataset) == class_dataset.labels.size()[0])
-
-    def test_make_balanced_arg_class_dataset(self, fix_seed, dataset):
-        class_dataset = dataset.make_arg_classification_dataset(balanced=True)
-        assert(isinstance(class_dataset, ClassificationDataset))
-        assert(isinstance(class_dataset[0][0], str))
-        assert(isinstance(class_dataset[0][1], torch.Tensor))
-        assert(len(class_dataset) == len(class_dataset.text))
-        assert(len(class_dataset) == class_dataset.labels.size()[0])
-        assert(torch.sum(torch.eq(class_dataset.labels, 1)) == torch.sum(torch.eq(class_dataset.labels, 2)))
-
     def test_split_default(self, dataset):
         train, val = dataset.split()
         assert(isinstance(train, EssayDataset))
@@ -62,74 +45,7 @@ class TestEssayDataset:
         assert(len(datasets) == 1)
         assert(len(new_dataset) == len(dataset))
 
-    def test_make_polarity_dataset(self, dataset):
-        polarity_dataset = dataset.make_polarity_dataset()
-        assert(isinstance(polarity_dataset, ComparisonDataset))
-        assert(len(polarity_dataset) == len(polarity_dataset.text_pairs))
-        assert(len(polarity_dataset) == polarity_dataset.labels.size()[0])
-        assert(isinstance(polarity_dataset[0], tuple))
-        assert(all(len(item) == 2 for item in polarity_dataset[:][0]))
-        assert(all(type(item[0]) == str for item in polarity_dataset[:][0]))
-        assert(isinstance(polarity_dataset[0][0], tuple))
-        assert(isinstance(polarity_dataset[0][1], torch.Tensor))
-        assert(isinstance(polarity_dataset[0][0][0], str))
-        assert(isinstance(polarity_dataset[0][0][1], str))
 
-    def test_make_ner_dataset(self, fix_seed, dataset, ner_tokenizer):
-        essay_feedback_dataset = dataset.make_ner_dataset(tokenizer=ner_tokenizer)
-        assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
-        assert(essay_feedback_dataset[0][0].size() == (1024,))
-        assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
-        assert(essay_feedback_dataset[0][1].size() == (1024,))
-        assert(isinstance(essay_feedback_dataset[0][2], torch.Tensor))
-        assert(essay_feedback_dataset[0][2].size() == (1024,))
-        assert(essay_feedback_dataset[0][2].max().item() == 1)
-        assert(essay_feedback_dataset[0][2].min().item() == -1)
 
-    def test_make_ner_seg_dataset(self, fix_seed, dataset, ner_tokenizer):
-        essay_feedback_dataset = dataset.make_ner_dataset(tokenizer=ner_tokenizer,
-                                                          seg_only=True)
-        assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
-        assert(essay_feedback_dataset[0][0].size() == (1024,))
-        assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
-        assert(essay_feedback_dataset[0][1].size() == (1024,))
-        assert(isinstance(essay_feedback_dataset[0][2], torch.Tensor))
-        assert(essay_feedback_dataset[0][2].size() == (1024,))
-        assert(essay_feedback_dataset[0][2].max().item() <= 15)
-        assert(essay_feedback_dataset[0][2].min().item() == -1)
-
-    def test_make_ner_dataset(self, fix_seed, dataset, ner_tokenizer):
-        essay_feedback_dataset = dataset.make_ner_dataset(tokenizer=ner_tokenizer,
-                                                          seg_only=False)
-        assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
-        assert(essay_feedback_dataset[0][0].size() == (1024,))
-        assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
-        assert(essay_feedback_dataset[0][1].size() == (1024,))
-        assert(isinstance(essay_feedback_dataset[0][2], torch.Tensor))
-        assert(essay_feedback_dataset[0][1].size() == (1024,))
-
-    def test_make_essay_feedback_dataset(self, fix_seed, dataset, kls_model):
-        essay_feedback_dataset = dataset.make_essay_feedback_dataset(encoder=kls_model)
-        assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
-        assert(essay_feedback_dataset[0][0].size() == (32, 769))
-        assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
-        assert(essay_feedback_dataset[0][1].size() == (32, 1))
-
-    def test_make_essay_feedback_dataset_random(self, fix_seed, dataset, kls_model):
-        essay_feedback_dataset = dataset.make_essay_feedback_dataset(
-            encoder=kls_model, randomize_segments=True)
-        assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
-        assert(essay_feedback_dataset[0][0].size() == (32, 769))
-        assert(isinstance(essay_feedback_dataset[0][1], torch.Tensor))
-        assert(essay_feedback_dataset[0][1].size() == (32, 1))
-
-    def test_make_bc_dataset(self, dataset_with_ner_probs, seq_env):
-        dataset = dataset_with_ner_probs.make_bc_dataset(seq_env)
-        sample = dataset[0]
-        assert(isinstance(dataset, TensorDataset))
-        assert(sample[0].size() == (1024,))
-        assert(sample[1].size() == (32, 8))
-        assert(sample[2].size() == (1024, 9))
-        assert(sample[3].size() == ())
 
 

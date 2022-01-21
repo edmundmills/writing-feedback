@@ -40,24 +40,3 @@ def link_evidence(oof):
         roof = roof.merge(neoof, how='outer')
         return roof
 
-proba_thresh = {
-    "Lead": 0.7,
-    "Position": 0.38,
-    "Evidence": 0.55,
-    "Claim": 0.6,
-    "Concluding Statement": 0.7,
-    "Counterclaim": 0.5,
-    "Rebuttal": 0.55,
-    'None': 1,
-}
-
-min_thresh = {
-    "Lead": 9,
-    "Position": 5,
-    "Evidence": 14,
-    "Claim": 3,
-    "Concluding Statement": 11,
-    "Counterclaim": 6,
-    "Rebuttal": 4,
-    'None': -1
-}

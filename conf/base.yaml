@@ -1,9 +1,7 @@
 defaults:
  - _self_
  - ner: ner
- - d_elem: pretrained
- - kls: classification
- - seg: ppo
+ - rl: ppo
  - env: assignment
 
 

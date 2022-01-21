@@ -4,17 +4,35 @@ import time
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader, RandomSampler, TensorDataset
 from transformers import LongformerTokenizerFast, LongformerModel
+import tqdm
 import wandb
 
 from utils.networks import MLP, Model, Mode
-from core.constants import argument_names
+from utils.constants import de_num_to_type
 from utils.render import plot_ner_output
+
+
+def get_pred_labels(predictions, num_words):
+    type_tokens = []
+    start_tokens = []
+    for pred in predictions:
+        start_token = 1
+        cont_token = 0
+        type_token = pred.label
+        start_tokens.append(start_token)
+        start_tokens.extend([cont_token] * (len(pred.word_idxs) - 1))
+        type_tokens.extend([type_token] * len(pred.word_idxs))
+    while len(start_tokens) < num_words:
+        start_tokens.append(-1)
+        type_tokens.append(-1)
+    tokens = np.array([start_tokens[:num_words], type_tokens[:num_words]], dtype=np.int8)
+    return tokens
+
 
 class NERTokenizer:
     def __init__(self, args):
-        super().__init__()
         self.max_tokens = args.essay_max_tokens
         self.tokenizer = LongformerTokenizerFast.from_pretrained('allenai/longformer-base-4096',
                                                                  add_prefix_space=True)
@@ -38,11 +56,40 @@ class NERTokenizer:
                      'word_id_tensor': word_id_tensor}
         return tokenized
 
+    def make_ner_dataset(self, essay_dataset, seg_only=False) -> TensorDataset:
+        print('Making NER Dataset')
+        input_ids = []
+        attention_masks = []
+        labels = []
+        word_ids = []
+        for essay in tqdm.tqdm(essay_dataset):
+            encoded = self.encode(essay.text)
+            input_ids.append(encoded['input_ids'])
+            attention_masks.append(encoded['attention_mask'])
+            word_ids.append(encoded['word_id_tensor'])
+            label_tokens = get_pred_labels(essay.correct_predictions, self.max_tokens)
+            def collate_label(word_idx, label_tokens):
+                if word_idx is None:
+                    return [-1,-1]
+                else:
+                    return label_tokens[:,word_idx]
+            label_tokens = np.array([collate_label(word_idx, label_tokens)
+                                     for word_idx in encoded['word_ids']])
+            if seg_only:
+                label_tokens = label_tokens[:,0]
+            labels.append(torch.LongTensor(label_tokens).squeeze())
+        input_ids = torch.cat(input_ids, dim=0)
+        attention_masks = torch.cat(attention_masks, dim=0)
+        labels = torch.stack(labels, dim=0)
+        word_ids = torch.stack(word_ids, dim=0)
+        dataset = TensorDataset(input_ids, attention_masks, labels, word_ids)
+        print('NER Dataset Created')
+        return dataset
+
 
 class NERModel(Model):
-    def __init__(self, args, feature_extractor=False) -> None:
+    def __init__(self, args) -> None:
         super().__init__()
-        self.feature_extractor = feature_extractor
         print('Loading NERModel')
         self.transformer = LongformerModel.from_pretrained(
             'allenai/longformer-base-4096').to(self.device)
@@ -54,14 +101,6 @@ class NERModel(Model):
                               args.linear_layer_size,
                               dropout=0.1).to(self.device)
         print('NERModel Loaded')
-
-    def split_essay_tokens(self, essay_tokens):
-        essay_tokens = essay_tokens.long()
-        input_ids, attention_mask, word_ids = torch.chunk(essay_tokens, 3, dim=-2)
-        input_ids = input_ids.squeeze(-2)
-        attention_mask = attention_mask.squeeze(-2)
-        word_ids = word_ids.squeeze(-2)
-        return input_ids, attention_mask, word_ids
 
     def collate_word_idxs(self, probs, word_ids):
         n_essays, n_tokens, n_categories = probs.size()
@@ -80,9 +119,7 @@ class NERModel(Model):
         output = self.classifier(encoded.last_hidden_state)
         return output
 
-    def inference(self, input_ids, attention_mask=None, word_ids=None):
-        if self.feature_extractor:
-            input_ids, attention_mask, word_ids = self.split_essay_tokens(input_ids)
+    def inference(self, input_ids, attention_mask, word_ids):
         input_ids = input_ids.to(self.device)
         attention_mask = attention_mask.to(self.device)
         word_ids = word_ids.to(self.device)
@@ -105,6 +142,19 @@ class NERModel(Model):
         attention_mask = self.collate_word_idxs(attention_mask, word_ids)
         output = output * attention_mask - (1 - attention_mask)
         return output.cpu()
+
+    def infer_for_dataset(self, essay_dataset, tokenizer) -> None:
+        print('Getting NER Probs')
+        ner_probs = {}
+        for essay in tqdm.tqdm(essay_dataset):
+            encoded = tokenizer.encode(essay.text)
+            probs = self.inference(encoded['input_ids'],
+                                        encoded['attention_mask'],
+                                        encoded['word_id_tensor'])
+            ner_probs[essay.essay_id] = probs
+        essay_dataset.ner_probs = ner_probs
+        print('NER Probs Added to Dataset')
+        return ner_probs
 
     def train_ner(self, train_dataset, val_dataset, args):
         dataloader = DataLoader(train_dataset,
@@ -284,7 +334,7 @@ class NERModel(Model):
                 class_confusion_matrix = wandb.plot.confusion_matrix(
                     y_true=running_class_labels,
                     preds=running_class_preds,
-                    class_names=argument_names
+                    class_names=de_num_to_type
                 )
                 metrics.update({'Classification/Confusion Matrix': class_confusion_matrix})
         return metrics

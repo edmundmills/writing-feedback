@@ -3,8 +3,9 @@ from pathlib import Path
 data_path = Path('data')
 essay_dir = data_path / 'train'
 label_file = data_path / 'train.csv'
+ner_probs_path = data_path / 'ner_probs.pkl'
 
-argument_types = {
+de_type_to_num = {
             'None': 0,
             'Lead': 1,
             'Position': 2,
@@ -15,4 +16,5 @@ argument_types = {
             'Concluding Statement': 7
         }
 
-argument_names = [k for k, _ in sorted(argument_types.items(), key=lambda x : x[1])]
+de_num_to_type = [k for k, _ in sorted(de_type_to_num.items(), key=lambda x : x[1])]
+

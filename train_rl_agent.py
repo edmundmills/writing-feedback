@@ -6,11 +6,13 @@ import random
 import transformers
 import torch
 import wandb
+from wandb.integration.sb3 import WandbCallback
 
 from core.dataset import EssayDataset
 from core.env import SegmentationEnv
-from utils.config import parse_args, get_config
-from utils.render import plot_ner_output
+from core.rl import make_agent
+from utils.config import parse_args, get_config, WandBRun
+
 
 
 if __name__ == '__main__':
@@ -27,7 +29,12 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    dataset = EssayDataset(2)
+    if args.debug:
+        dataset = EssayDataset(n_essays=3)
+        args.rl.total_timesteps = 4096
+        args.rl.n_envs = min(2, args.rl.n_envs)
+    else:
+        dataset = EssayDataset()
 
 
     ner_probs_path = 'data/ner_probs.pkl'
@@ -35,20 +42,15 @@ if __name__ == '__main__':
         dataset.ner_probs = pickle.load(saved_file)
     print(f'NER Probs Loaded from {ner_probs_path}')
 
-    env = SegmentationEnv.make(1, dataset, args.env)
+    train, val = dataset.split()
 
-    state = env.reset()
-    print(env.essay_id)
-    done = False
-    while not done:
-        plot_ner_output(state)
-        action = int(input('Action: '))
-        print(env.actions[action])
-        state, reward, done, info = env.step(action)
-        print(f'Reward: {reward:.2f}')
-    grade = env.current_state_value()
-    print(f'f-Score: {grade}')
-    for pred in env.essay.correct_predictions:
-        print(pred.start, pred.stop, pred.label)
-    for pred in env.predictions:
-        print(pred.start, pred.stop, pred.label)
+    env = SegmentationEnv.make(args.rl.n_envs, train, args.env)
+
+    with WandBRun(args, project_name='segmentation'):
+        agent = make_agent(args, env)
+        if args.wandb:
+            callback = WandbCallback(verbose=args.rl.sb3_verbosity)
+        else:
+            callback = None
+        agent.learn(total_timesteps=args.rl.total_timesteps,
+                    callback=callback)

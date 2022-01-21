@@ -1,5 +1,6 @@
 from core.essay import Prediction
 
+from utils.constants import de_num_to_type, de_type_to_num
 
 class TestPrediction:
     def test_formatted(self, prediction):
@@ -12,21 +13,13 @@ class TestPrediction:
         assert(len(prediction.word_idxs) == (prediction.stop - prediction.start + 1))
 
 class TestEssay:
-    def test_polarity_pairs(self, essay):
-        pairs, labels = essay.polarity_pairs()
-        assert(isinstance(pairs, list))
-        assert(isinstance(labels, list))
-        assert(len(pairs) == len(labels))
-        assert(min(labels) >= -1)
-        assert(max(labels) <= 1)
-
     def test_words(self, essay):
         words = essay.words
         assert(isinstance(words, list))
         assert(isinstance(words[0], str))
 
-    def test_all_arguments(self, essay):
-        arguments = essay.all_arguments()
+    def test_all_d_elems(self, essay):
+        arguments = essay._all_d_elems()
         assert(isinstance(arguments, list))
         assert(isinstance(arguments[0], tuple))
         assert(isinstance(arguments[0][0], str))
@@ -60,7 +53,7 @@ class TestEssay:
         preds = essay.correct_predictions
         assert(isinstance(preds, list))
         assert(isinstance(preds[0], Prediction))
-        assert(len(preds) == len(essay.all_arguments()))
+        assert(len(preds) == len(essay._all_d_elems()))
         assert(preds[0].start == 0)
         assert(preds[-1].stop == len(essay.words) - 1)
   
@@ -194,3 +187,99 @@ class TestGrade:
         assert(metrics['true_positives'] == 1)
         assert(metrics['false_positives'] == 1)
         assert(metrics['false_negatives'] == len(essay.labels) - 1)
+
+class TestGetLabel:
+    def test_exact(self, essay):
+        pstring = essay.pstrings[0]
+        label = essay.get_labels(pstring)[0]
+        true_label = de_type_to_num[essay.labels.iloc[0].loc['discourse_type']]
+        prediction = [{'id': essay.essay_id,
+                       'class': de_num_to_type[label],
+                       'predictionstring': pstring}]
+        grading_data = essay.grade(prediction)
+        assert(isinstance(label, int))
+        assert(label == true_label)
+        assert(grading_data['true_positives'] == 1)
+        assert(grading_data['false_positives'] == 0)
+    
+    def test_longer(self, essay):
+        pstring = essay.pstrings[0]
+        nums = [int(num) for num in pstring.split()]
+        nums += list(range(max(nums)+1, max(nums) + len(nums) // 2))
+        pstring = ' '.join(str(num) for num in nums)
+        label = essay.get_labels(pstring)[0]
+        true_label = de_type_to_num[essay.labels.iloc[0].loc['discourse_type']]
+        prediction = [{'id': essay.essay_id,
+                       'class': de_num_to_type[label],
+                       'predictionstring': pstring}]
+        grading_data = essay.grade(prediction)
+        assert(isinstance(label, int))
+        assert(label == true_label)
+        assert(grading_data['true_positives'] == 1)
+        assert(grading_data['false_positives'] == 0)
+
+    def test_shorter(self, essay):
+        pstring = essay.pstrings[0]
+        nums = [int(num) for num in pstring.split()]
+        nums = nums[:(len(nums)//2 + 1)]
+        pstring = ' '.join(str(num) for num in nums)
+        label = essay.get_labels(pstring)[0]
+        true_label = de_type_to_num[essay.labels.iloc[0].loc['discourse_type']]
+        prediction = [{'id': essay.essay_id,
+                       'class': de_num_to_type[label],
+                       'predictionstring': pstring}]
+        grading_data = essay.grade(prediction)
+        assert(isinstance(label, int))
+        assert(label == true_label)
+        assert(grading_data['true_positives'] == 1)
+        assert(grading_data['false_positives'] == 0)
+
+    def test_too_short(self, essay):
+        pstring = essay.pstrings[0]
+        nums = [int(num) for num in pstring.split()]
+        nums = nums[:(len(nums)//2 - 1)]
+        pstring = ' '.join(str(num) for num in nums)
+        label = essay.get_labels(pstring)[0]
+        true_label = de_type_to_num[essay.labels.iloc[0].loc['discourse_type']]
+        prediction = [{'id': essay.essay_id,
+                       'class': de_num_to_type[label],
+                       'predictionstring': pstring}]
+        grading_data = essay.grade(prediction)
+        assert(isinstance(label, int))
+        assert(label == 0)
+        assert(grading_data['true_positives'] == 0)
+        assert(grading_data['false_positives'] == 0)
+    
+    def test_too_long(self, essay):
+        nums = range(len(essay.words))
+        pstring = ' '.join(str(num) for num in nums)
+        label = essay.get_labels(pstring)[0]
+        prediction = [{'id': essay.essay_id,
+                       'class': de_num_to_type[label],
+                       'predictionstring': pstring}]
+        grading_data = essay.grade(prediction)
+        assert(isinstance(label, int))
+        assert(label == 0)
+        assert(grading_data['true_positives'] == 0)
+        assert(grading_data['false_positives'] == 0)
+
+
+class TestGetLabels:
+    def test_all_correct(self, essay):
+        labels = essay.get_labels(essay.pstrings)
+        predictions = [
+            {'id': essay.essay_id,
+             'class': de_num_to_type[label],
+             'predictionstring': pstring}
+            for pstring, label in zip(essay.pstrings, labels)
+        ]
+        grading_data = essay.grade(predictions)
+        assert(grading_data['f_score'] == 1)
+
+    def test_with_num_specified(self, essay):
+        labels = essay.get_labels(essay.pstrings, num_d_elems=10)
+        assert(len(labels) == 10)
+        labels = essay.get_labels(essay.pstrings, num_d_elems=2)
+        assert(len(labels) == 2)
+        labels = essay.get_labels(essay.pstrings, num_d_elems=40)
+        assert(len(labels) == 40)
