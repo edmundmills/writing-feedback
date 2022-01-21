@@ -3,13 +3,15 @@ name: ppo
 train_ner_model: False
 ner_model_name: woven-wood-3
 
-layer_size: 1024
-n_layers: 5
+layer_size: 512
+n_layers: 1
 
-total_timesteps: 1e6
-n_steps: 256
+total_timesteps: 1e7
+n_steps: 128
 batch_size: 512
 n_envs: 12
+lr: 1e-3
+epochs: 10
 
 save_ner_probs: False
 load_ner_probs: True

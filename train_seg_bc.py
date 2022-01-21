@@ -36,7 +36,7 @@ if __name__ == '__main__':
         args.seg.total_timesteps = 1024
         args.seg.n_envs = min(2, args.seg.n_envs)
     else:
-        dataset = EssayDataset(2)
+        dataset = EssayDataset()
 
 
     ner_probs_path = 'data/ner_probs.pkl'

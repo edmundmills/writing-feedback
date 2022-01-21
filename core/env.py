@@ -52,7 +52,7 @@ class SegmentationEnv(gym.Env):
         if n_envs == 1:
             print(f'Making Non-Vectorized {cls.__name__} Environment')
             env = cls(essay_dataset, env_args)
-            env = Monitor(env)
+            env = Monitor(env, filename=f'./log/test', info_keywords=('Score',))
             print('Env Created')
             return env
         print(f'Making Vectorized {cls.__name__} Environment')
@@ -64,7 +64,7 @@ class SegmentationEnv(gym.Env):
                 return env
             return _init
         venv = SubprocVecEnv([make_env(ds) for ds in datasets])
-        venv = VecMonitor(venv, filename=f'./log/test')
+        venv = VecMonitor(venv, filename=f'./log/test', info_keywords=('Score',))
         print('Vectorized env created')
         return venv
 
@@ -101,11 +101,11 @@ class SegmentationEnv(gym.Env):
         }
         return state
 
-    def current_state_value(self):
-        if self.grade_classifications:
-            labels = [pred.label for pred in self.predictions]
-        else:
+    def current_state_value(self, correct_preds=False):
+        if correct_preds:
             labels = self.essay.get_labels(self.predictions)
+        else:
+            labels = [pred.label for pred in self.predictions]
         predictions = [
             {'id': self.essay.essay_id,
              'class': argument_names[label],
@@ -158,6 +158,8 @@ class SequencewiseEnv(SegmentationEnv):
             print(self.steps)
         reward = self.current_state_value() - init_value
         info = {}
+        if self.done:
+            info.update({'Score': self.current_state_value()})
         return self.state, reward, self.done, info
 
 
@@ -314,25 +316,26 @@ class AssignmentEnv(SegmentationEnv):
 
     @property
     def state(self):
-        return np.concatenate((
+        state = np.concatenate((
             self.segmented_ner_probs.squeeze(0).numpy(),
             self.class_tokens
         ), axis=-1)
+        state[:,9] /= 128
+        return state
 
     def step(self, action):
-        if action == 8:
-            self.grade_classifications = False
-        init_value = self.current_state_value()
         if self.done:
             raise RuntimeError('Environment is done, must be reset')
         if action not in self.actions:
             raise ValueError('Action not in available actions')
         else:
             func = self.actions[action]
-            func()
+            reward = func()
         info = {}
-        reward = self.current_state_value() - init_value
-        self.grade_classifications = True
+        if self.done:
+            info.update({'Score': self.current_state_value()})
+        else:
+            info.update({'Score': None})
         return self.state, reward, self.done, info
 
     @property
@@ -355,7 +358,23 @@ class AssignmentEnv(SegmentationEnv):
 
     def _merge(self):
         if (self.cur_seg_idx + 1) >= len(self.segment_lens):
-            return
+            return -0.05
+        init_value = self.current_state_value()
+        pred_len = self.segment_lens[self.cur_seg_idx]
+        start = self.word_idx
+        stop = start + pred_len - 1
+        pred = Prediction(start, stop, 0, self.essay_id)
+        self.predictions.append(pred)
+        potential_rewards = []
+        for argument_name in argument_names:
+            self.predictions[-1].label = argument_types[argument_name]
+            potential_rewards.append(
+                self.current_state_value() - init_value
+            )
+        bonus = max(potential_rewards) == 0
+        self.predictions = self.predictions[:-1]
+        
+        init_value = self.current_state_value(correct_preds=True)
         cur_len = self.segment_lens[self.cur_seg_idx]
         next_len = self.segment_lens[self.cur_seg_idx + 1]
         total_len = cur_len + next_len
@@ -370,8 +389,13 @@ class AssignmentEnv(SegmentationEnv):
         pad = -torch.ones((1,1,10))
         self.segmented_ner_probs = torch.cat((prev_seg_data, merge_seg_data,
                                               next_seg_data, pad), dim=1)
+        reward = self.current_state_value(correct_preds=True)
+        if bonus and reward == 0:
+            reward = 0.05
+        return reward
 
     def _assign(self, label):
+        init_value = self.current_state_value()
         label = argument_types[label]
         pred_len = self.segment_lens[self.cur_seg_idx]
         start = self.word_idx
@@ -380,6 +404,8 @@ class AssignmentEnv(SegmentationEnv):
         self.predictions.append(pred)
         if (stop + 1)>= (self.num_essay_words - 1):
             self.done = True
+        reward = self.current_state_value() - init_value
+        return reward
 
     @property
     def num_essay_words(self):

@@ -2,7 +2,6 @@ from typing import Union
 
 import gym
 import numpy as np
-from pandas import isna
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch
@@ -11,16 +10,19 @@ import wandb
 
 from core.classification import ClassificationModel
 from core.ner import NERModel
-from utils.networks import PositionalEncoder
+from utils.networks import PositionalEncoder, MLP
 from utils.render import plot_ner_output
 
 extractors = {}
 
 
-def segment_ner_probs(ner_probs:Union[torch.Tensor, np.ndarray], threshold=0.2, max_segments=32):
+def segment_ner_probs(ner_probs:Union[torch.Tensor, np.ndarray], max_segments=32):
     ner_probs = torch.tensor(ner_probs)
     if len(ner_probs.size()) == 2:
         ner_probs = ner_probs.unsqueeze(0)
+    num_words = ner_probs.size(1)
+    threshold, _ = torch.kthvalue(ner_probs, num_words - max_segments + 1, dim=1)
+    threshold = threshold[0,0]
     segments = ner_probs[0,:,0] > threshold
     segments = segments.tolist()
     segment_data = []
@@ -66,7 +68,7 @@ def register_extractor(cls):
 @register_extractor
 class SegmentAttention(BaseFeaturesExtractor):
     def __init__(self, observation_space, args):
-        feature_dim = args.env.num_d_elems * 18
+        feature_dim = args.env.num_d_elems * 9
         super().__init__(observation_space, features_dim=feature_dim)
         device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
         encoder_layer = nn.TransformerEncoderLayer(d_model=18,
@@ -74,12 +76,16 @@ class SegmentAttention(BaseFeaturesExtractor):
                                                    batch_first=True)
         self.attention = nn.TransformerEncoder(encoder_layer, args.env.num_attention_layers).to(device)
         # self.positional_encoder = PositionalEncoder(features=18, seq_len=32, device=device)
+        self.linear = MLP(n_inputs=18,
+                        n_outputs=9,
+                        n_layers=1,
+                        layer_size=None).to(device)
+
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        with torch.no_grad():
-            observations[:,:,9] /= 128
         #     observations = self.positional_encoder(observations)
         output = self.attention(observations)
+        output = self.linear(output)
         output = output.flatten(start_dim=1)
         return output
 
@@ -170,6 +176,8 @@ def make_agent(base_args, env):
         agent_kwargs.update(dict(
             policy_kwargs=policy_kwargs,
             n_steps=seg_args.n_steps,
-            batch_size=seg_args.batch_size
+            batch_size=seg_args.batch_size,
+            learning_rate=seg_args.lr,
+            n_epochs=seg_args.epochs
         ))
     return agent_cls("MultiInputPolicy", env, **agent_kwargs)
