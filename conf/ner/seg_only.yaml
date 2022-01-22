@@ -19,3 +19,5 @@ eval_interval: 50
 eval_samples: 512
 
 save_model: True
+
+load_model_name: None

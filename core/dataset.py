@@ -3,6 +3,7 @@ import random
 from typing import Any, List, Tuple
 
 import pandas as pd
+import pickle
 import tqdm
 
 from utils.constants import data_path, essay_dir, label_file
@@ -33,7 +34,9 @@ class EssayDataset:
                     text = f.read()
                 matches = self.df.loc[:,'id'] == essay_id
                 labels = self.df[matches]
-                essay = (text, labels)
+                essay = {'text': text,
+                         'labels': labels,
+                         'fold': None}
             else:
                 essay = full_dataset.essays[essay_id]
             self.essays[essay_id] = essay
@@ -56,9 +59,12 @@ class EssayDataset:
         return list(essay_ids), df
 
     def get_by_id(self, essay_id):
-        essay_text, essay_labels = self.essays[essay_id]
-        essay = Essay(essay_id, essay_text, essay_labels)
-        essay.ner_pobs = self.ner_probs.get(essay_id, None)
+        essay_data = self.essays[essay_id]
+        essay = Essay(essay_id,
+                      essay_data['text'],
+                      essay_data['labels'],
+                      ner_probs=self.ner_probs.get(essay_id, None),
+                      fold=essay_data['fold'])
         return essay
 
     def __len__(self):
@@ -67,6 +73,22 @@ class EssayDataset:
     def __getitem__(self, idx) -> Tuple[str, str, pd.DataFrame]:
         essay_id = self.essay_ids[idx]
         return self.get_by_id(essay_id)
+
+    def make_folds(self, num_folds=5) -> None:
+        self.folds = list(range(num_folds))
+        essays = self.essay_ids.copy()
+        random.shuffle(essays)
+        for idx, essay_id in enumerate(essays):
+            self.essays[essay_id]['fold'] = idx % num_folds
+    
+    def get_fold(self, fold):
+        val_ids = [essay_id for essay_id in self.essay_ids if
+                    self.essays[essay_id]['fold'] == fold]
+        train_ids = [essay_id for essay_id in self.essay_ids if
+                    self.essays[essay_id]['fold'] != fold]
+        train = EssayDataset(essay_ids=train_ids, full_dataset=self)
+        val = EssayDataset(essay_ids=val_ids, full_dataset=self)
+        return train, val
 
     def random_essay(self, num_essays=1) -> List:
         return random.choices(self, k=num_essays)
@@ -109,6 +131,30 @@ class EssayDataset:
         if __name == 'ner_probs' and 'essay_ids' in self.__dict__:
             pruned_dict = {}
             for essay_id in self.essay_ids:
-                pruned_dict[essay_id] = __value[essay_id]
+                ner_probs = __value.get(essay_id, None)
+                if ner_probs is not None:
+                    pruned_dict[essay_id] = ner_probs
             __value = pruned_dict
         object.__setattr__(self, __name, __value)
+
+
+    def save(self, path):
+        print(f'Saving Dataset to {str(path)}')
+        with open(path, 'wb') as save_file:
+            pickle.dump(self, save_file)
+        print('Dataset Saved')
+
+    def load(self, path):
+        print(f'Loading dataset from {str(path)}')
+        with open(path, 'rb') as saved_file:
+            dataset = pickle.load(saved_file)
+        print('Dataset Loaded')
+        return dataset
+
+    def __add__(self, ds):
+        new_dataset = self.split([1])[0]
+        new_dataset.essay_ids += ds.essay_ids
+        new_dataset.essays.update(ds.essays)
+        new_dataset.ner_probs.update(ds.ner_probs)
+        new_dataset.df = pd.concat((new_dataset.df, ds.df))
+        return new_dataset

@@ -6,14 +6,11 @@ import random
 import transformers
 import torch
 import wandb
-from wandb.integration.sb3 import WandbCallback
 
 from core.dataset import EssayDataset
-from core.env import SegmentationEnv
 from core.ner import NERModel, NERTokenizer
-from core.rl import make_agent
-from utils.config import parse_args, get_config, WandBRun
-
+from utils.config import parse_args, get_config
+from utils.constants import ner_probs_path
 
 
 if __name__ == '__main__':
@@ -32,19 +29,16 @@ if __name__ == '__main__':
 
     if args.debug:
         dataset = EssayDataset(n_essays=3)
-        args.rl.total_timesteps = 4096
-        args.rln_envs = min(2, args.rln_envs)
     else:
         dataset = EssayDataset()
 
 
-    ner_probs_path = 'data/ner_probs.pkl'
     ner_tokenizer = NERTokenizer(args.ner)
     ner_model = NERModel(args.ner)
-    ner_model.load(args.rl.ner_model_name)
-    ner_probs = ner_model.infer_for_dataset(dataset, ner_tokenizer)
+    ner_model.load(args.ner.ner_model_name)
+    dataset.ner_probs = ner_model.infer_for_dataset(dataset, ner_tokenizer)
     print(f'Saving NER Probs to {ner_probs_path}')
     with open(ner_probs_path, 'wb') as saved_file:
-        pickle.dump(ner_probs, saved_file)
+        pickle.dump(dataset.ner_probs, saved_file)
     print('NER probs saved')
 

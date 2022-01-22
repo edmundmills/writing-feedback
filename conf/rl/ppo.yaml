@@ -1,8 +1,5 @@
 name: ppo
 
-train_ner_model: False
-ner_model_name: woven-wood-3
-
 feature_extractor: SegmentAttention
 num_attention_layers: 2
 n_head: 6
@@ -18,8 +15,6 @@ n_envs: 12
 lr: 1e-3
 epochs: 10
 
-save_ner_probs: False
-load_ner_probs: True
 
 save_model: True
 sync_tensorboard: True
