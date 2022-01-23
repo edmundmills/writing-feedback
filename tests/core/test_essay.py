@@ -58,6 +58,20 @@ class TestEssay:
         assert(preds[-1].stop == len(essay.words) - 1)
   
 
+class TestGetLabelsForSegments:
+    def test_correct_preds(self, essay):
+        preds = essay.correct_predictions
+        segment_preds = essay.get_labels_for_segments(preds)
+        print(segment_preds)
+        assert(segment_preds == [(len(pred), pred.label) for pred in preds])
+
+
+class TestSegLabelsToPreds:
+    def test_correct_preds(self, essay):
+        preds = essay.correct_predictions
+        segment_preds = essay.get_labels_for_segments(preds)
+        new_preds = essay.segment_labels_to_preds(segment_preds)
+        assert(all([pred == new_pred for pred, new_pred in zip(preds, new_preds)]))
 
 class TestGrade:
     def test_single_prediction(self, essay):
