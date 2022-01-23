@@ -18,3 +18,23 @@ de_type_to_num = {
 
 de_num_to_type = [k for k, _ in sorted(de_type_to_num.items(), key=lambda x : x[1])]
 
+ner_num_to_token = [
+    'None',
+    'Lead (start)',
+    'Position (start)',
+    'Claim (start)',
+    'Counterclaim (start)',
+    'Rebuttal (start)',
+    'Evidence (start)',
+    'Concluding Statement',
+    'Lead (cont)',
+    'Position (cont)',
+    'Claim (cont)',
+    'Counterclaim (cont)',
+    'Rebuttal (cont)',
+    'Evidence (cont)',
+    'Concluding Statement (cont)'
+]
+
+ner_token_to_num = {name: idx for idx, name
+                    in enumerate(ner_num_to_token)}

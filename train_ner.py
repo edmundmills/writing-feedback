@@ -35,20 +35,22 @@ if __name__ == '__main__':
 
     tokenizer = NERTokenizer(args.ner)
 
-    with WandBRun(args, project_name='ner'):
-        for fold in dataset.folds:
-            print(f'Starting training on fold {fold}')
-            train, val = dataset.get_fold(fold)
+    first_run_name = None
+    
+    for fold in dataset.folds:
+        print(f'Starting training on fold {fold}')
+        train, val = dataset.get_fold(fold)
 
-            train = tokenizer.make_ner_dataset(train, seg_only=args.ner.segmentation_only)
-            val = tokenizer.make_ner_dataset(val, seg_only=args.ner.segmentation_only)
-            print(f'Training dataset size: {len(train)}')
-            print(f'Validation dataset size: {len(val)}')
+        train = tokenizer.make_ner_dataset(train)
+        val = tokenizer.make_ner_dataset(val)
+        print(f'Training dataset size: {len(train)}')
+        print(f'Validation dataset size: {len(val)}')
 
-            model = NERModel(args.ner)
+        model = NERModel(args.ner)
 
-
+        with WandBRun(args, project_name='ner'):
+            first_run_name = first_run_name or wandb.run.name
             model.train_ner(train, val, args)
             if args.ner.save_model:
-                model_name = f'{wandb.run.name}_fold_{fold}' if args.wandb else 'test'
+                model_name = f'{first_run_name}_fold_{fold}_{wandb.run.name}' if args.wandb else 'test'
                 model.save(model_name)

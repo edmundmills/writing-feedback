@@ -10,24 +10,20 @@ import tqdm
 import wandb
 
 from utils.networks import MLP, Model, Mode
-from utils.constants import de_num_to_type
+from utils.constants import de_num_to_type, ner_num_to_token
 from utils.render import plot_ner_output
 
 
 def get_pred_labels(predictions, num_words):
-    type_tokens = []
-    start_tokens = []
+    tokens = []
     for pred in predictions:
-        start_token = 1
-        cont_token = 0
-        type_token = pred.label
-        start_tokens.append(start_token)
-        start_tokens.extend([cont_token] * (len(pred.word_idxs) - 1))
-        type_tokens.extend([type_token] * len(pred.word_idxs))
-    while len(start_tokens) < num_words:
-        start_tokens.append(-1)
-        type_tokens.append(-1)
-    tokens = np.array([start_tokens[:num_words], type_tokens[:num_words]], dtype=np.int8)
+        start_token = pred.label
+        cont_token = start_token + 7 if start_token != 0 else 0
+        tokens.append(start_token)
+        tokens.extend([cont_token] * (len(pred.word_idxs) - 1))
+    while len(tokens) < num_words:
+        tokens.append(-1)
+    tokens = np.array(tokens[:num_words], dtype=np.int8)
     return tokens
 
 
@@ -56,7 +52,7 @@ class NERTokenizer:
                      'word_id_tensor': word_id_tensor}
         return tokenized
 
-    def make_ner_dataset(self, essay_dataset, seg_only=False) -> TensorDataset:
+    def make_ner_dataset(self, essay_dataset) -> TensorDataset:
         print('Making NER Dataset')
         input_ids = []
         attention_masks = []
@@ -68,15 +64,8 @@ class NERTokenizer:
             attention_masks.append(encoded['attention_mask'])
             word_ids.append(encoded['word_id_tensor'])
             label_tokens = get_pred_labels(essay.correct_predictions, self.max_tokens)
-            def collate_label(word_idx, label_tokens):
-                if word_idx is None:
-                    return [-1,-1]
-                else:
-                    return label_tokens[:,word_idx]
-            label_tokens = np.array([collate_label(word_idx, label_tokens)
+            label_tokens = np.array([label_tokens[word_idx] if word_idx != None else -1
                                      for word_idx in encoded['word_ids']])
-            if seg_only:
-                label_tokens = label_tokens[:,0]
             labels.append(torch.LongTensor(label_tokens).squeeze())
         input_ids = torch.cat(input_ids, dim=0)
         attention_masks = torch.cat(attention_masks, dim=0)
@@ -93,8 +82,7 @@ class NERModel(Model):
         print('Loading NERModel')
         self.transformer = LongformerModel.from_pretrained(
             'allenai/longformer-base-4096').to(self.device)
-        self.seg_only = args.segmentation_only
-        self.n_outputs = 2 if args.segmentation_only else 10
+        self.n_outputs = len(ner_num_to_token)
         self.classifier = MLP(768,
                               self.n_outputs,
                               args.linear_layers,
@@ -127,17 +115,7 @@ class NERModel(Model):
             self.eval()
             output = self(input_ids, attention_mask)
             output = self.collate_word_idxs(output, word_ids)
-        if not self.seg_only:
-            seg_output, class_output = torch.split(output, [2,8], dim=-1)
-        else:
-            seg_output = output
-        seg_output = F.softmax(seg_output, dim=-1)
-        _, seg_output = torch.chunk(seg_output, 2, dim=-1)
-        if not self.seg_only:
-            class_output = F.softmax(class_output, dim=-1)
-            output = torch.cat((seg_output, class_output), dim=-1)
-        else:
-            output = seg_output
+        output = F.softmax(output, dim=-1)
         attention_mask = attention_mask.unsqueeze(-1).repeat(1,1,output.size(-1))
         attention_mask = self.collate_word_idxs(attention_mask, word_ids)
         output = output * attention_mask - (1 - attention_mask)
@@ -175,8 +153,7 @@ class NERModel(Model):
                     {'params': self.classifier.parameters(), 'lr':lr*10}
                     ])
                 print(f'Starting Epoch {epoch} with LR={lr}')
-                seg_loss = 0
-                class_loss = 0
+                loss = 0
                 for idx, (input_ids, attention_mask, labels, _word_ids) in enumerate(dataloader):
                     step += 1
                     input_ids = input_ids.to(self.device)
@@ -184,27 +161,13 @@ class NERModel(Model):
                     labels = labels.to(self.device).squeeze()
 
                     output = self(input_ids, attention_mask).squeeze()
-                    if not self.seg_only:
-                        seg_output, class_output = torch.split(output, [2,8], dim=-1)
-                        start_labels = labels[...,0]
-                        class_labels = labels[...,1]
-                    else:
-                        seg_output = output
-                        start_labels = labels
-                    msk = (start_labels != -1)
-                    seg_output = seg_output[msk]
-                    start_labels = start_labels[msk]
-                    seg_loss += F.cross_entropy(seg_output, start_labels)
-                    if not self.seg_only:
-                        class_output = class_output[msk]
-                        class_labels = class_labels[msk]
-                        class_loss += F.cross_entropy(class_output, class_labels)
+                    msk = (labels != -1)
+                    output = output[msk]
+                    labels = labels[msk]
+                    loss += F.cross_entropy(output, labels)
 
                     if step % args.ner.grad_accumulation == 0 or idx == len(train_dataset) - 1:
                         grad_steps = step // args.ner.grad_accumulation
-                        loss = seg_loss
-                        if not self.seg_only:
-                            loss += class_loss
                         optimizer.zero_grad()
                         loss.backward()
                         torch.nn.utils.clip_grad_norm_(self.parameters(), args.ner.max_grad_norm)
@@ -215,15 +178,8 @@ class NERModel(Model):
                         timestamps.append(time.time())
                         metrics = {
                             'Train Loss': loss,
-                            'Segmentation/Train Loss': seg_loss.item()
                         }
-                        if not self.seg_only:
-                            metrics.update({
-                                'Classification/Train Loss': class_loss.item()
-                            })
                         loss = 0
-                        seg_loss = 0
-                        class_loss = 0
 
                         if grad_steps % args.ner.print_interval == 0:
                             print(f'Step {grad_steps}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
@@ -247,95 +203,38 @@ class NERModel(Model):
                                     num_workers=4,
                                     sampler=RandomSampler(dataset))
             losses = []
-            seg_losses = []
-            class_losses = []
-            running_start_preds = []
-            running_class_preds = []
-            running_start_labels = []
-            running_class_labels = []
-            running_p_pos = []
+            running_preds = []
+            running_labels = []
             for step, (input_ids, attention_mask, labels, _word_ids) in enumerate(dataloader, start=1):
                 labels = labels.to(self.device).squeeze()
                 input_ids = input_ids.to(self.device)
                 attention_mask = attention_mask.to(self.device)
                 with torch.no_grad():
                     output = self(input_ids, attention_mask).squeeze()
-                    if not self.seg_only:
-                        seg_output, class_output = torch.split(output, [2,8], dim=-1)
-                        start_labels = labels[...,0]
-                        class_labels = labels[...,1]
-                    else:
-                        seg_output = output
-                        start_labels = labels
-                    msk = (start_labels != -1)
-                    seg_output = seg_output[msk]
-                    start_labels = start_labels[msk]
-                    seg_loss = F.cross_entropy(seg_output, start_labels)
-                    loss = seg_loss
-                    seg_losses.append(seg_loss.item())
-                    if not self.seg_only:
-                        class_output = class_output[msk]
-                        class_labels = class_labels[msk]
-                        class_loss = F.cross_entropy(class_output, class_labels)
-                        loss += class_loss
-                        class_losses.append(class_loss.item())
-                losses.append(loss.item())
-                start_probs = F.softmax(seg_output, dim=-1).cpu().numpy()
-                start_preds = np.argmax(start_probs, axis=-1).flatten()
-                start_labels = start_labels.cpu().numpy().flatten()
-                running_start_preds.extend(start_preds)
-                running_start_labels.extend(start_labels)
-                p_pos = list(start_probs[:,1])
-                running_p_pos.extend(p_pos)
-                if not self.seg_only:
-                    class_probs = F.softmax(class_output, dim=-1).cpu().numpy()
-                    class_preds = np.argmax(class_probs, axis=-1).flatten()
-                    class_labels = class_labels.cpu().numpy().flatten()
-                    running_class_labels.extend(class_labels)
-                    running_class_preds.extend(class_preds)
+                    msk = (labels != -1)
+                    output = output[msk]
+                    labels = labels[msk]
+                    loss = F.cross_entropy(output, labels)
+                    losses.append(loss.item())
+                probs = F.softmax(output, dim=-1).cpu().numpy()
+                preds = np.argmax(probs, axis=-1).flatten()
+                running_preds.extend(preds)
+                running_labels.extend(labels.cpu().numpy().flatten())
                 if step * args.ner.batch_size >= n_samples:
                     break
         
         avg_loss = sum(losses) / len(losses)
-        avg_seg_loss = sum(seg_losses) / len(seg_losses)
-        seg_correct = np.equal(running_start_preds, running_start_labels)
-        avg_seg_acc = sum(seg_correct) / len(running_start_preds)            
-        avg_p_pos = sum(running_p_pos) / len(running_p_pos)
-        p_pos_var = np.var(running_p_pos)
-        pos = np.equal(running_start_preds, 1)
-        true_pos = np.logical_and(pos, seg_correct)
-        false_neg = np.logical_and(1-pos,1-seg_correct)
-        seg_f_score = sum(true_pos) / (sum(true_pos)
-                                + .5*(sum(pos) - sum(true_pos) + sum(false_neg)))
+        correct = np.equal(running_preds, running_labels)
+        avg_acc = sum(correct) / len(running_preds)            
         metrics = {'Eval Loss': avg_loss,
-                   'Segmentation/Eval Loss': avg_seg_loss,
-                   'Segmentation/Eval Accuracy': avg_seg_acc,
-                   'Segmentation/F-Score': seg_f_score,
-                   'Segmentation/Avg Positive Prob': avg_p_pos,
-                   'Segmentation/Positive Prob Variance': p_pos_var}
-        
-        if not self.seg_only:
-            class_correct = np.equal(running_class_preds, running_class_labels)
-            avg_class_acc = sum(class_correct) / len(running_class_preds)
-            avg_class_loss = sum(class_losses) / len(class_losses)
-            metrics.update({
-                'Classification/Eval Accuracy': avg_class_acc,
-                'Classification/Eval Loss': avg_class_loss,
-            })
-        
+                   'Eval Accuracy': avg_acc}
+                
         if args.wandb:
             seg_confusion_matrix = wandb.plot.confusion_matrix(
-                y_true=running_start_labels,
-                preds=running_start_preds,
-                class_names=['Divide', 'Continue'])
-            metrics.update({'Segmentation/Confusion Matrix': seg_confusion_matrix})
-            if not self.seg_only:
-                class_confusion_matrix = wandb.plot.confusion_matrix(
-                    y_true=running_class_labels,
-                    preds=running_class_preds,
-                    class_names=de_num_to_type
-                )
-                metrics.update({'Classification/Confusion Matrix': class_confusion_matrix})
+                y_true=running_labels,
+                preds=running_preds,
+                class_names=ner_num_to_token)
+            metrics.update({'Confusion Matrix': seg_confusion_matrix})
         return metrics
 
 

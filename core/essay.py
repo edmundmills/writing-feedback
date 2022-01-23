@@ -37,6 +37,12 @@ class Prediction:
 
     def __repr__(self):
         return str(self.formatted())
+    
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, self.__class__):
+            return False
+        return bool(self.start == __o.start and self.stop == __o.stop
+                    and self.label == __o.label and self.essay_id == __o.essay_id)
 
 
 class Essay:
@@ -72,6 +78,48 @@ class Essay:
         if num_d_elems:
             labels = labels[:num_d_elems] + [-1] * max(0, num_d_elems - len(labels))
         return labels
+
+    def get_labels_for_segments(self, predictions, max_joins=31) -> List[Tuple[int, int]]:
+        joins = 0
+        labels = [0] * len(predictions)
+        while joins < max_joins and 0 in labels:
+            for _, label in self.labels.iterrows():
+                for i, pred in enumerate(predictions):
+                    if labels[i] != 0: continue
+                    join_too_long = any(
+                        [j + 1 >= len(predictions) or labels[j] != 0
+                         for j in range(i + 1, i + joins + 1)]
+                    )
+                    if join_too_long: continue                     
+                    formatted_pred = pred.formatted()
+                    start = pred.start
+                    stop = predictions[i + joins].stop
+                    formatted_pred['predictionstring'] = prediction_string(start, stop)
+                    for pred_class in range(1,8):
+                        formatted_pred['class'] = de_num_to_type[pred_class]
+                        if ismatch(formatted_pred, label):
+                            labels[i] = pred_class
+                            labels[(i+1):(i+joins+1)] = [pred_class  + 7] * joins
+                            break
+            joins += 1
+        return list(zip((len(pred) for pred in predictions), labels))
+    
+    def segment_labels_to_preds(self, seg_labels) -> List[Prediction]:
+        preds = []
+        for idx, (seg_len, seg_label) in enumerate(seg_labels):
+            if idx ==0:
+                cur_start = 0
+                cur_stop = seg_len
+                cur_label = seg_label if seg_label <= 8 else seg_label - 7
+            elif  seg_label - 7 == cur_label:
+                cur_stop = cur_stop + seg_len
+            else:         
+                preds.append(Prediction(cur_start, cur_stop - 1, cur_label, self.essay_id))
+                cur_start = cur_stop
+                cur_stop = cur_start + seg_len
+                cur_label = seg_label if seg_label <= 8 else seg_label - 7
+        preds.append(Prediction(cur_start, cur_stop - 1, cur_label, self.essay_id))
+        return preds
 
     def grade(self, predictions:List[Dict]):
         predictions = [prediction for prediction in predictions
