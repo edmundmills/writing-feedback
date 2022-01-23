@@ -56,7 +56,7 @@ class TestIsMatch:
         }
         assert(not ismatch(prediction, essay.labels.iloc[0]))
 
-    def test_long_nonmatch(self, essay, fix_seed):
+    def test_long_nonmatch(self, essay):
         arg_class = essay.labels.iloc[0]['discourse_type']
         predictionstring = essay.labels.iloc[0]['predictionstring']
         predictionstring2 = essay.labels.iloc[1]['predictionstring']

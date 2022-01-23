@@ -8,6 +8,11 @@ import torch
 import wandb
 from wandb.integration.sb3 import WandbCallback
 
+random.seed(0)
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
+
 from core.dataset import EssayDataset
 from core.env import SegmentationEnv
 from core.rl import make_agent
@@ -24,11 +29,6 @@ if __name__ == '__main__':
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
     
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-
     if args.debug:
         dataset = EssayDataset(n_essays=3)
         args.rl.total_timesteps = 4096

@@ -81,7 +81,7 @@ class TestNERModel:
         output = model.inference(encoded_text, attention_mask, word_ids)
         assert(output.size() == (1, base_args.ner.essay_max_tokens, 9))
 
-    def test_make_ner_dataset_seg_only(self, fix_seed, dataset, ner_tokenizer):
+    def test_make_ner_dataset_seg_only(self, dataset, ner_tokenizer):
         essay_feedback_dataset = ner_tokenizer.make_ner_dataset(dataset, seg_only=True)
         # input_ids
         assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))
@@ -95,7 +95,7 @@ class TestNERModel:
         assert(essay_feedback_dataset[0][2].max().item() == 1)
         assert(essay_feedback_dataset[0][2].min().item() == -1)
 
-    def test_make_ner_dataset(self, fix_seed, dataset, ner_tokenizer):
+    def test_make_ner_dataset(self, dataset, ner_tokenizer):
         essay_feedback_dataset = ner_tokenizer.make_ner_dataset(dataset)
         # input_ids
         assert(isinstance(essay_feedback_dataset[0][0], torch.Tensor))

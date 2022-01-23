@@ -1,4 +1,3 @@
-from lib2to3.pgen2 import token
 import random
 from typing import List
 
@@ -8,6 +7,11 @@ import pickle
 import pytest
 import torch
 
+random.seed(0)
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
+
 from core.dataset import EssayDataset
 from core.env import AssignmentEnv
 from core.essay import Prediction
@@ -15,21 +19,10 @@ from core.ner import NERTokenizer
 from utils.config import get_config
 from utils.constants import *
 
-random.seed(0)
-np.random.seed(0)
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
 
 max_d_elems = 32
 encoded_sentence_length = 768
 encoded_essay_length = 1024
-
-@pytest.fixture
-def fix_seed():
-    random.seed(0)
-    np.random.seed(0)
-    torch.manual_seed(0)
-    torch.cuda.manual_seed_all(0)
 
 # ARGS
 

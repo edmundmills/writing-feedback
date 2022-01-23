@@ -7,6 +7,11 @@ import transformers
 import torch
 import wandb
 
+random.seed(0)
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
+
 from core.dataset import EssayDataset
 from core.env import SegmentationEnv
 from core.essay import Prediction
@@ -25,11 +30,6 @@ if __name__ == '__main__':
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
     
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-
     dataset = EssayDataset(100)
 
 
