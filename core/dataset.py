@@ -144,11 +144,14 @@ class EssayDataset:
             pickle.dump(self, save_file)
         print('Dataset Saved')
 
-    def load(self, path):
+    @classmethod
+    def load(cls, path):
         print(f'Loading dataset from {str(path)}')
         with open(path, 'rb') as saved_file:
             dataset = pickle.load(saved_file)
-        print('Dataset Loaded')
+        if not isinstance(dataset, cls):
+            raise TypeError('File does not contain a dataset')
+        print(f'Dataset Loaded with {len(dataset)} essays')
         return dataset
 
     def __add__(self, ds):

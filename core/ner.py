@@ -186,8 +186,8 @@ class NERModel(Model):
                     output = self(input_ids, attention_mask).squeeze()
                     if not self.seg_only:
                         seg_output, class_output = torch.split(output, [2,8], dim=-1)
-                        start_labels = labels[0]
-                        class_labels = labels[1]
+                        start_labels = labels[...,0]
+                        class_labels = labels[...,1]
                     else:
                         seg_output = output
                         start_labels = labels
@@ -236,8 +236,7 @@ class NERModel(Model):
 
                         if args.wandb:
                             wandb.log(metrics, step=grad_steps)
-        if args.wandb and args.ner.save_model and not args.debug:
-            self.save()
+        print('Training Complete')
 
 
     def evaluate(self, dataset, args, n_samples=None):
@@ -263,8 +262,8 @@ class NERModel(Model):
                     output = self(input_ids, attention_mask).squeeze()
                     if not self.seg_only:
                         seg_output, class_output = torch.split(output, [2,8], dim=-1)
-                        start_labels = labels[0]
-                        class_labels = labels[1]
+                        start_labels = labels[...,0]
+                        class_labels = labels[...,1]
                     else:
                         seg_output = output
                         start_labels = labels

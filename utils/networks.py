@@ -11,10 +11,10 @@ class Model(nn.Module):
         super().__init__()
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu') 
 
-    def save(self):
+    def save(self, model_name):
         model_dir = Path('models') / self.__class__.__name__
         model_dir.mkdir(parents=True, exist_ok=True)
-        model_file = model_dir / f'{wandb.run.name}.pth' 
+        model_file = model_dir / f'{model_name}.pth' 
         print(f'Saving model as {model_file}')
         torch.save(self.state_dict(), model_file)
         print(f'Model Saved.')

@@ -4,11 +4,17 @@ import numpy as np
 import random
 import transformers
 import torch
+import wandb
+
+random.seed(0)
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
 
 from core.ner import NERModel, NERTokenizer
 from core.dataset import EssayDataset
-
 from utils.config import parse_args, get_config, WandBRun
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -17,28 +23,32 @@ if __name__ == '__main__':
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
     
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-
     if args.debug:
-        dataset = EssayDataset(n_essays=200)
+        dataset = EssayDataset(n_essays=100)
+        dataset.make_folds()
         args.ner.print_interval = 10
         args.ner.eval_interval = 10
         args.ner.eval_samples = 10
-        args.ner.epochs = 3
+        args.ner.epochs = 2
     else:
-        dataset = EssayDataset()
-
-    train, val = dataset.split()
+        dataset = EssayDataset.load(args.dataset_path)
 
     tokenizer = NERTokenizer(args.ner)
 
-    train = tokenizer.make_ner_dataset(train, seg_only=args.ner.segmentation_only)
-    val = tokenizer.make_ner_dataset(val, seg_only=args.ner.segmentation_only)
-
-    model = NERModel(args.ner)
-
     with WandBRun(args, project_name='ner'):
-        model.train_ner(train, val, args)
+        for fold in dataset.folds:
+            print(f'Starting training on fold {fold}')
+            train, val = dataset.get_fold(fold)
+
+            train = tokenizer.make_ner_dataset(train, seg_only=args.ner.segmentation_only)
+            val = tokenizer.make_ner_dataset(val, seg_only=args.ner.segmentation_only)
+            print(f'Training dataset size: {len(train)}')
+            print(f'Validation dataset size: {len(val)}')
+
+            model = NERModel(args.ner)
+
+
+            model.train_ner(train, val, args)
+            if args.ner.save_model:
+                model_name = f'{wandb.run.name}_fold_{fold}' if args.wandb else 'test'
+                model.save(model_name)
