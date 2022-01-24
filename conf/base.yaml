@@ -8,6 +8,8 @@ defaults:
 name: base
 
 dataset_path: 'data/full_dataset.pkl'
+ner_dataset_path: 'data/dataset_with_ner.pkl'
+ner_model_name: lemon-dream-5
 
 debug: False
 wandb: True
