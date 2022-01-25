@@ -21,19 +21,8 @@ from utils.render import plot_ner_output
 if __name__ == '__main__':
     args = parse_args()
     args = get_config('base', args)
-
-    if args.wandb:
-        wandb.tensorboard.patch(root_logdir="log")
-    os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    transformers.logging.set_verbosity_error()
     
-    dataset = EssayDataset(2)
-
-
-    ner_probs_path = 'data/ner_probs.pkl'
-    with open(ner_probs_path, 'rb') as saved_file:
-        dataset.ner_probs = pickle.load(saved_file)
-    print(f'NER Probs Loaded from {ner_probs_path}')
+    dataset = EssayDataset.load(args.ner_dataset_path)
 
     env = SegmentationEnv.make(1, dataset, args.env)
 

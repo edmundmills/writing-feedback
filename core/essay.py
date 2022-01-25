@@ -53,6 +53,9 @@ class Essay:
         self.ner_probs = ner_probs
         self.fold = fold
 
+    def __len__(self):
+        return len(self.words)
+
     @property
     def path(self):
         return essay_dir / f'{self.essay_id}.txt'
@@ -66,6 +69,21 @@ class Essay:
             if grading_data['true_positives'] == 1:
                 return label
         return 0
+
+    def ner_labels(self, num_words, predictions=None):
+        predictions = predictions or self.correct_predictions
+        tokens = [-1] * num_words
+        for pred in predictions:
+            start_token = pred.label
+            cont_token = start_token + 7 if start_token != 0 else 0
+            if pred.start < num_words:
+                tokens[pred.start] = start_token
+                stop_idx = min(num_words, pred.stop + 1)
+                tokens[(pred.start+1):(stop_idx)] = [cont_token] * (len(pred) - 1)
+        tokens = np.array(tokens, dtype=np.int8)
+        return tokens
+
+
 
     def get_labels(self, predictions, num_d_elems=None):
         if not isinstance(predictions, list):
@@ -122,6 +140,10 @@ class Essay:
         return preds
 
     def grade(self, predictions:List[Dict]):
+        if not isinstance(predictions, list):
+            predictions = list(predictions)
+        if predictions and isinstance(predictions[0], Prediction):
+            predictions = [pred.formatted() for pred in predictions]
         predictions = [prediction for prediction in predictions
                        if prediction['class'] != 'None']
         matched_labels = [0] * len(self.labels)

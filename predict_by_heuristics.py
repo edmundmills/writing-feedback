@@ -27,6 +27,6 @@ if __name__ == '__main__':
         _preds, metrics = predicter.by_heuristics(essay)
         score = metrics['f_score']
         scores.append(score)
-        if count and len(scores > count): break
+        if count and len(scores) > count: break
     avg_score = sum(scores) / len(scores)
-    print(avg_score)
+    print(f'{avg_score:.03f}')
