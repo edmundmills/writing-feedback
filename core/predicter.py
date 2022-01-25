@@ -1,6 +1,7 @@
 from typing import Union
 
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 from core.essay import Prediction
@@ -32,50 +33,68 @@ class Predicter:
             'None': -1
         }
 
-    def by_heuristics(self, essay): 
-        ner_probs = essay.ner_probs
-        start_preds = ner_probs[:,:,0].squeeze() > self.start_thresh
-        class_probs = ner_probs[:,:,1:]
-        class_preds = np.argmax(class_probs, axis=-1).squeeze()
+    def by_heuristics(self, essay, thresholds=True): 
+        probs = essay.ner_probs.numpy()
+        preds = np.argmax(probs, axis=-1).squeeze()
+        pred_probs = np.max(probs, axis=-1).squeeze()
         predictions = []
-        for idx, (start_pred, class_pred) in enumerate(zip(start_preds, class_preds)):
+        for idx, pred in enumerate(preds):
+            start_pred = pred > 0 and pred <= 7
+            pred_class = pred - 7 if pred > 7 else pred
             if idx == 0:
                 cur_pred_start = 0
-                cur_pred_class = class_preds[0]
+                cur_pred_class = pred_class
                 continue
-            if class_pred == cur_pred_class and not start_pred:
+            if pred_class == cur_pred_class and not start_pred:
                 continue
-            pred = Prediction(cur_pred_start, idx, int(cur_pred_class), essay.essay_id)
-            pred_weights = class_probs[0, pred.start:(pred.stop + 1), pred.label]
-            pred_weights = pred_weights.squeeze().tolist()
+            pred = Prediction(cur_pred_start, idx - 1, cur_pred_class, essay.essay_id)
+            pred_weights = pred_probs[pred.start:(pred.stop + 1)]
             class_confidence = sum(pred_weights) / len(pred_weights)
-            if class_confidence > self.proba_thresh[pred.argument_name] \
-                    and len(pred) > self.min_thresh[pred.argument_name]:
-                predictions.append(pred.formatted())
-            cur_pred_class = class_pred
+            if (class_confidence > self.proba_thresh[pred.argument_name] \
+                    and len(pred) > self.min_thresh[pred.argument_name]) \
+                        or not thresholds:
+                predictions.append(pred)
+            cur_pred_class = pred_class
             cur_pred_start = idx
         metrics = essay.grade(predictions)
         return predictions, metrics
 
 
     def segment_ner_probs(self, ner_probs:Union[torch.Tensor, np.ndarray], max_segments=32):
-        ner_probs = torch.tensor(ner_probs)
+        # ner_probs = torch.tensor(ner_probs)
         if len(ner_probs.size()) == 2:
             ner_probs = ner_probs.unsqueeze(0)
         num_words = ner_probs.size(1)
-        threshold, _ = torch.kthvalue(ner_probs, num_words - max_segments + 1, dim=1)
-        threshold = threshold[0,0]
-        segments = ner_probs[0,:,0] > threshold
-        segments = segments.tolist()
+        
+        ner_class_probs = ner_probs[...,1:8] + ner_probs[...,8:]
+
+        start_probs = torch.sum(ner_probs[:,:,1:8], dim=-1, keepdim=True)
+
+        class_preds = torch.argmax(ner_class_probs, dim=-1, keepdim=True)
+        class_preds_offset = torch.cat((class_preds[:,:1,:], class_preds[:,:-1,:]), dim=1)
+        max_probs = torch.gather(ner_class_probs, dim=-1, index=class_preds)
+        next_max_probs = torch.gather(ner_class_probs, dim=-1, index=class_preds_offset)
+        next_max_probs = torch.cat((next_max_probs[:,1:,:], next_max_probs[:,-1:,:]), dim=1)
+        start_probs += (max_probs - next_max_probs)
+        start_probs = start_probs.transpose(-2, -1)
+        start_probs = F.max_pool1d(start_probs, kernel_size=3).transpose(-2, -1)
+        threshold, _ = torch.kthvalue(start_probs, num_words//3 - max_segments + 1, dim=1)
+        threshold = threshold.item()
+        segments = start_probs > threshold
+        segments = segments.squeeze().tolist()
+        segments = [item for triplet
+                    in zip([False]*len(segments), segments, [False]*len(segments))
+                    for item in triplet]
+
         segment_data = []
         cur_seg_data = []
 
         def concat_seg_data(seg_data):
             seg_len = len(seg_data)
-            start_prob = seg_data[0][0,0]
+            start_probs = seg_data[0][0,1:7]
             seg_data = torch.cat(seg_data, dim=0)
             seg_data = torch.sum(seg_data, dim=0, keepdim=True) / seg_len
-            seg_data[:,0] = start_prob
+            seg_data[:,1:7] = start_probs
             seg_data = torch.cat((seg_data, torch.tensor(seg_len).reshape(1,1)), dim=-1)
             return seg_data
 
@@ -94,6 +113,6 @@ class Predicter:
         n_segments = len(segment_data)
         segmented = torch.cat(segment_data, dim=0)
         padding = max(0, max_segments - n_segments)
-        segmented = torch.cat((segmented[:max_segments], -torch.ones((padding, 10))), dim=0)
+        segmented = torch.cat((segmented[:max_segments], -torch.ones((padding, 16))), dim=0)
         segmented = segmented.unsqueeze(0)
         return segmented
