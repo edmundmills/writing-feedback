@@ -64,28 +64,28 @@ class Predicter:
         # ner_probs = torch.tensor(ner_probs)
         if len(ner_probs.size()) == 2:
             ner_probs = ner_probs.unsqueeze(0)
-        num_words = ner_probs.size(1)
+        num_words = torch.sum(ner_probs[:,:,0] != -1, dim=1).item()
+        ner_probs = ner_probs[:,:num_words,:]
         
-        ner_class_probs = ner_probs[...,1:8] + ner_probs[...,8:]
-
         start_probs = torch.sum(ner_probs[:,:,1:8], dim=-1, keepdim=True)
 
-        class_preds = torch.argmax(ner_class_probs, dim=-1, keepdim=True)
-        class_preds_offset = torch.cat((class_preds[:,:1,:], class_preds[:,:-1,:]), dim=1)
-        max_probs = torch.gather(ner_class_probs, dim=-1, index=class_preds)
-        next_max_probs = torch.gather(ner_class_probs, dim=-1, index=class_preds_offset)
-        next_max_probs = torch.cat((next_max_probs[:,1:,:], next_max_probs[:,-1:,:]), dim=1)
-        start_probs += (max_probs - next_max_probs)
-        start_probs = start_probs.transpose(-2, -1)
-        start_probs = F.max_pool1d(start_probs, kernel_size=3).transpose(-2, -1)
-        threshold, _ = torch.kthvalue(start_probs, num_words//3 - max_segments + 1, dim=1)
-        threshold = threshold.item()
-        segments = start_probs > threshold
+        ner_probs_offset = torch.cat((ner_probs[:,:1,:], ner_probs[:,:-1,:]), dim=1)
+        delta_probs = ner_probs - ner_probs_offset
+        max_delta = torch.max(delta_probs, dim=-1, keepdim=True).values
+        start_probs += max_delta
+        target_segments = max_segments
+        result_segments = 0
+        while result_segments < max_segments:
+            threshold, _ = torch.kthvalue(start_probs, num_words - target_segments + 1, dim=1)
+            threshold = threshold.item()
+            segments = start_probs > threshold
+            segments[:,0,:] = True
+            for i in range(1, num_words):
+                if (segments[:,i-1,:] or segments[:,i-2,:]) and segments[:,i,:]:
+                    segments[:,i,:] = False
+            result_segments = torch.sum(segments).item()
+            target_segments += max_segments - result_segments
         segments = segments.squeeze().tolist()
-        segments = [item for triplet
-                    in zip([False]*len(segments), segments, [False]*len(segments))
-                    for item in triplet]
-
         segment_data = []
         cur_seg_data = []
 
