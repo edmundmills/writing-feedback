@@ -77,13 +77,12 @@ class NERModel:
         self.seg_only = False
     
     def inference(self, *args, **kwargs):
-        return torch.ones(1, encoded_essay_length, 9).float()
+        return torch.ones(1, encoded_essay_length, 15).float()
 
 @pytest.fixture
 def ner_probs():
-    with open(ner_probs_path, 'rb') as saved_file:
-        ner_probs = pickle.load(saved_file)
-    return next(iter(ner_probs.values()))
+    dataset = EssayDataset.load('data/dataset_with_ner.pkl')
+    return next(iter(dataset.ner_probs.values()))
 
 @pytest.fixture
 def ner_tokenizer():

@@ -14,18 +14,9 @@ from utils.constants import de_num_to_type, ner_num_to_token
 from utils.render import plot_ner_output
 
 
-def get_pred_labels(predictions, num_words):
-    tokens = []
-    for pred in predictions:
-        start_token = pred.label
-        cont_token = start_token + 7 if start_token != 0 else 0
-        tokens.append(start_token)
-        tokens.extend([cont_token] * (len(pred.word_idxs) - 1))
-    while len(tokens) < num_words:
-        tokens.append(-1)
-    tokens = np.array(tokens[:num_words], dtype=np.int8)
-    return tokens
-
+def collate_labels(label_tokens, word_ids):
+    return np.array([label_tokens[word_idx] if word_idx is not None else -1
+                                     for word_idx in word_ids])
 
 class NERTokenizer:
     def __init__(self, args):
@@ -40,6 +31,7 @@ class NERTokenizer:
                                              truncation=True,
                                              return_tensors='pt',
                                              return_attention_mask=True,
+                                             return_offsets_mapping=True,
                                              is_split_into_words=True,
                                              )
         word_ids = tokenized.word_ids()
@@ -63,14 +55,13 @@ class NERTokenizer:
             input_ids.append(encoded['input_ids'])
             attention_masks.append(encoded['attention_mask'])
             word_ids.append(encoded['word_id_tensor'])
-            label_tokens = get_pred_labels(essay.correct_predictions, self.max_tokens)
-            label_tokens = np.array([label_tokens[word_idx] if word_idx != None else -1
-                                     for word_idx in encoded['word_ids']])
+            label_tokens = essay.ner_labels(num_words=self.max_tokens)
+            label_tokens = collate_labels(label_tokens, encoded['word_ids'])
             labels.append(torch.LongTensor(label_tokens).squeeze())
         input_ids = torch.cat(input_ids, dim=0)
         attention_masks = torch.cat(attention_masks, dim=0)
         labels = torch.stack(labels, dim=0)
-        word_ids = torch.stack(word_ids, dim=0)
+        word_ids = torch.cat(word_ids, dim=0)
         dataset = TensorDataset(input_ids, attention_masks, labels, word_ids)
         print('NER Dataset Created')
         return dataset
@@ -94,14 +85,15 @@ class NERModel(Model):
         n_essays, n_tokens, n_categories = probs.size()
         range_tensor = torch.arange(n_tokens, device=probs.device)
         range_tensor = range_tensor.repeat(n_essays, 1)
-        word_idxs = range_tensor + range_tensor - word_ids - 1
-        total_words = torch.max(word_ids, dim=-1, keepdim=True).values
-        msk = torch.le(range_tensor, total_words + 1)
+        word_offset = (range_tensor - 1) - word_ids
+        word_idxs = range_tensor + word_offset
+        total_words = torch.max(word_ids, dim=-1, keepdim=True).values + 1
+        msk = torch.le(range_tensor, total_words)
         msk = msk.unsqueeze(-1).repeat(1,1,n_categories)
         word_idxs = word_idxs.unsqueeze(-1).repeat(1,1,n_categories)
         probs = torch.gather(probs, dim=-2, index=word_idxs*msk)*msk
         probs = torch.cat((probs[:,1:,:],
-                           torch.zeros(n_essays, 1, n_categories, device=self.device)), dim=1)
+                           torch.zeros(n_essays, 1, n_categories, device=probs.device)), dim=1)
         return probs
 
     def forward(self, input_ids, attention_mask):

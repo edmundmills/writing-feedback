@@ -1,6 +1,21 @@
 from core.ner import *
 
 
+class TestCollateLabels:
+    def test_valid(self):
+        label_tokens = [1, 2, 3, 4, -1, -1, -1, -1]
+        word_ids = [None, 0, 1, 2, 2, 3, None, None]
+        collated = collate_labels(label_tokens, word_ids)
+        print(collated)
+        assert(all(collated == [-1, 1, 2, 3, 3, 4, -1, -1]))
+
+    def test_valid_longer(self):
+        label_tokens = [1, 2, 3, 4, 5, 6, -1, -1]
+        word_ids = [None, 0, 1, 2, 2, 3, 3, 4]
+        collated = collate_labels(label_tokens, word_ids)
+        print(collated)
+        assert(all(collated == [-1, 1, 2, 3, 3, 4, 4, 5]))
+
 class TestEncode:
     def test_valid(self, ner_args, essay):
         tokenizer = NERTokenizer(ner_args)
@@ -9,15 +24,6 @@ class TestEncode:
         assert(tokenized['attention_mask'].size() == (1, 1024))
         assert(len(tokenized['word_ids']) == 1024)
         assert(tokenized['word_id_tensor'].size() == (1,1024))
-
-class TestGetPredLabels:
-    def test_valid(self, prediction):
-        length = 50
-        tokens = get_pred_labels([prediction], length)
-        assert(tokens.shape == (length,))
-        assert(min(tokens) == -1)
-        assert(max(tokens) <= 15)
-
 
 
 class TestNERModel:
@@ -73,3 +79,21 @@ class TestNERModel:
         assert(essay_feedback_dataset[0][2].size() == (1024,))
         assert(essay_feedback_dataset[0][2].max().item() <= 15)
         assert(essay_feedback_dataset[0][2].min().item() == -1)
+        # word_ids
+        assert(isinstance(essay_feedback_dataset[0][3], torch.Tensor))
+        assert(essay_feedback_dataset[0][3].size() == (1024,))
+        assert(essay_feedback_dataset[0][3].max().item() <= 1024)
+        assert(essay_feedback_dataset[0][3].min().item() == -1)
+        # get_multiple
+        # input_ids
+        assert(essay_feedback_dataset[0:2][0].size() == (2, 1024,))
+        # attention_masks
+        assert(essay_feedback_dataset[0:2][1].size() == (2, 1024,))
+        #labels
+        assert(essay_feedback_dataset[0:2][2].size() == (2, 1024,))
+        assert(essay_feedback_dataset[0:2][2].max().item() <= 15)
+        assert(essay_feedback_dataset[0:2][2].min().item() == -1)
+        # word_ids
+        assert(essay_feedback_dataset[0:2][3].size() == (2, 1024,))
+        assert(essay_feedback_dataset[0:2][3].max().item() <= 1024)
+        assert(essay_feedback_dataset[0:2][3].min().item() == -1)

@@ -1,3 +1,5 @@
+from copy import copy
+
 from core.essay import Prediction
 
 from utils.constants import de_num_to_type, de_type_to_num
@@ -72,6 +74,22 @@ class TestSegLabelsToPreds:
         segment_preds = essay.get_labels_for_segments(preds)
         new_preds = essay.segment_labels_to_preds(segment_preds)
         assert(all([pred == new_pred for pred, new_pred in zip(preds, new_preds)]))
+
+
+class TestNERLabels:
+    def test_valid(self, prediction, essay):
+        length = 50
+        print(prediction)
+        pred2 = copy(prediction)
+        pred2.start = 20
+        pred2.stop = 30
+        pred2.label = 5
+        tokens = essay.ner_labels(length, predictions=[prediction, pred2])
+        print(tokens)
+        assert(tokens.shape == (length,))
+        assert(min(tokens) == -1)
+        assert(max(tokens) <= 15)
+
 
 class TestGrade:
     def test_single_prediction(self, essay):

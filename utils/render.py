@@ -78,7 +78,7 @@ class EssayRenderer:
         if predictions is not None:
             guess_ner_tokens = essay.ner_labels(num_words=self.num_words, predictions=predictions)
         else:
-            guess_ner_tokens = [None] * self.num_words
+            guess_ner_tokens = [0] * self.num_words
         for idx, word in enumerate(essay.words):
             correct_token = correct_ner_tokens[idx]
             guess_token = guess_ner_tokens[idx]
@@ -105,5 +105,4 @@ class EssayRenderer:
             print(render_word.expandtabs(20))
         if predictions:
             print(essay.grade(predictions))
-            print(len(essay), torch.sum(essay.ner_probs[:,:,1] != -1))
         print('\n')
