@@ -100,6 +100,8 @@ class NERModel(Model):
         msk = msk.unsqueeze(-1).repeat(1,1,n_categories)
         word_idxs = word_idxs.unsqueeze(-1).repeat(1,1,n_categories)
         probs = torch.gather(probs, dim=-2, index=word_idxs*msk)*msk
+        probs = torch.cat((probs[:,1:,:],
+                           torch.zeros(n_essays, 1, n_categories, device=self.device)), dim=1)
         return probs
 
     def forward(self, input_ids, attention_mask):
@@ -127,8 +129,8 @@ class NERModel(Model):
         for essay in tqdm.tqdm(essay_dataset):
             encoded = tokenizer.encode(essay.text)
             probs = self.inference(encoded['input_ids'],
-                                        encoded['attention_mask'],
-                                        encoded['word_id_tensor'])
+                                   encoded['attention_mask'],
+                                   encoded['word_id_tensor'])
             ner_probs[essay.essay_id] = probs
         essay_dataset.ner_probs = ner_probs
         print('NER Probs Added to Dataset')

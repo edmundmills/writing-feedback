@@ -37,19 +37,19 @@ class TestNERModel:
         new_probs = model.collate_word_idxs(probs, word_ids)
         print(new_probs)
         assert(torch.equal(new_probs,
-                           torch.FloatTensor([0, .1, .2, .4, 0, 0, 0]).unsqueeze(0).unsqueeze(-1)))
+                           torch.FloatTensor([.1, .2, .4, 0, 0, 0, 0]).unsqueeze(0).unsqueeze(-1)))
         probs = torch.FloatTensor([[0, .1, .2], [0, .4, .5]]).unsqueeze(-1)
         word_ids = torch.LongTensor([[-1, 0, 0], [-1, 0, 0]])
         new_probs = model.collate_word_idxs(probs, word_ids)
-        assert(torch.equal(new_probs, torch.FloatTensor([[0, .1, 0], [0, .4, 0]]).unsqueeze(-1)))
+        assert(torch.equal(new_probs, torch.FloatTensor([[.1, 0, 0], [.4, 0, 0]]).unsqueeze(-1)))
         probs = torch.FloatTensor([[0, .1, .2], [0, .4, .5]]).unsqueeze(-1)
         word_ids = torch.LongTensor([[-1, 0, 1], [-1, 0, 0]])
         new_probs = model.collate_word_idxs(probs, word_ids)
-        assert(torch.equal(new_probs, torch.FloatTensor([[0, .1, .2], [0, .4, 0]]).unsqueeze(-1)))
+        assert(torch.equal(new_probs, torch.FloatTensor([[.1, .2, 0], [.4, 0, 0]]).unsqueeze(-1)))
         probs = torch.FloatTensor([[0, .1, .2], [0, .4, .5]]).unsqueeze(-1)
         word_ids = torch.LongTensor([[-1, 0, 0]])
         new_probs = model.collate_word_idxs(probs, word_ids)
-        assert(torch.equal(new_probs, torch.FloatTensor([[0, .1, 0], [0, .4, 0]]).unsqueeze(-1)))
+        assert(torch.equal(new_probs, torch.FloatTensor([[.1, 0, 0], [.4, 0, 0]]).unsqueeze(-1)))
 
     def test_inference(self, encoded_essay, base_args):
         base_args.ner.segmentation_only = False
