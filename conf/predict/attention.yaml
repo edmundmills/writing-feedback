@@ -1,0 +1,20 @@
+name: Attention
+
+num_ner_segments: 32
+
+n_head: 8
+num_attention_layers: 2
+num_linear_layers: 3
+linear_layer_size: 1024
+dropout: 0.1
+
+epochs: 100
+batch_size: 128
+learning_rate: 1e-3
+
+print_interval: 100
+eval_interval: 200
+eval_samples: 640
+
+load_ner_features: True
+save_ner_features: False

@@ -33,8 +33,8 @@ def base_args():
     return args
 
 @pytest.fixture
-def kls_args():
-    args = OmegaConf.load('conf/kls/classification.yaml')
+def pred_args():
+    args = OmegaConf.load('conf/predict/attention.yaml')
     return args
 
 @pytest.fixture
@@ -118,14 +118,14 @@ def encoded_preds():
     return torch.LongTensor(preds).unsqueeze(0)
 
 
-
 # ENVS
 
 @pytest.fixture
 def dataset_with_ner_probs():
     dataset = EssayDataset(n_essays=5)
-    with open(ner_probs_path, 'rb') as saved_file:
-        dataset.ner_probs = pickle.load(saved_file)
+    with open('data/dataset_with_ner.pkl', 'rb') as saved_file:
+        full_dataset = pickle.load(saved_file)
+    dataset.ner_probs = full_dataset.ner_probs
     return dataset
 
 @pytest.fixture
@@ -138,8 +138,9 @@ def assign_args():
 def assign_env():
     args = get_config('base', args=['env=assignment'])
     dataset = EssayDataset(n_essays=5)
-    with open(ner_probs_path, 'rb') as saved_file:
-        dataset.ner_probs = pickle.load(saved_file)
+    with open('data/dataset_with_ner.pkl', 'rb') as saved_file:
+        full_dataset = pickle.load(saved_file)
+    dataset.ner_probs = full_dataset.ner_probs
     env = AssignmentEnv(dataset, args.env)
     return env
 

@@ -3,6 +3,7 @@ defaults:
  - ner: ner
  - rl: ppo
  - env: assignment
+ - predict: attention
 
 
 name: base
