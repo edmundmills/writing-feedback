@@ -1,3 +1,5 @@
+import itertools
+import math
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -97,30 +99,35 @@ class Essay:
             labels = labels[:num_d_elems] + [-1] * max(0, num_d_elems - len(labels))
         return labels
 
-    def get_labels_for_segments(self, predictions, max_joins=31) -> List[Tuple[int, int]]:
-        joins = 0
-        labels = [0] * len(predictions)
-        while joins < max_joins and 0 in labels:
-            for _, label in self.labels.iterrows():
-                for i, pred in enumerate(predictions):
-                    if labels[i] != 0: continue
-                    join_too_long = any(
-                        [j + 1 >= len(predictions) or labels[j] != 0
-                         for j in range(i + 1, i + joins + 1)]
-                    )
-                    if join_too_long: continue                     
-                    formatted_pred = pred.formatted()
-                    start = pred.start
-                    stop = predictions[i + joins].stop
-                    formatted_pred['predictionstring'] = prediction_string(start, stop)
-                    for pred_class in range(1,8):
-                        formatted_pred['class'] = de_num_to_type[pred_class]
-                        if ismatch(formatted_pred, label):
-                            labels[i] = pred_class
-                            labels[(i+1):(i+joins+1)] = [pred_class  + 7] * joins
-                            break
-            joins += 1
-        return list(zip((len(pred) for pred in predictions), labels))
+    def get_labels_for_segments(self, segment_lens:List[int]) -> List[Tuple[int, int]]:
+        seg_labels = [0] * len(segment_lens)
+        matched_label_idxs = [None] * len(segment_lens)
+
+        word_indices = np.arange(len(self))
+        label_arrays = []
+        for _text, d_type, pstring in self._all_d_elems():
+            if d_type == 0: next
+            label_array = (word_indices >= start_num(pstring)) * (word_indices <= end_num(pstring))
+            label_arrays.append((label_array, de_type_to_num[d_type]))
+
+        right_borders = list(itertools.accumulate(segment_lens))
+        left_border = 0
+
+        for idx, right_border in enumerate(right_borders):
+            seg_array = (word_indices >= left_border) * (word_indices < right_border)
+            for label_idx, (label_array, d_type) in enumerate(label_arrays):
+                overlap = sum(seg_array * label_array)
+                if overlap >= math.ceil((right_border - left_border) / 2):
+                    seg_labels[idx] = d_type
+                    matched_label_idxs[idx] = label_idx
+                    break
+            left_border = right_border
+        for idx in range(len(seg_labels)):
+            if idx == 0: continue
+            if matched_label_idxs[idx - 1] == matched_label_idxs[idx]:
+                if seg_labels[idx] != 0:
+                    seg_labels[idx] += 7
+        return list(zip(segment_lens, seg_labels))
     
     def segment_labels_to_preds(self, seg_labels) -> List[Prediction]:
         preds = []
@@ -131,7 +138,7 @@ class Essay:
                 cur_label = seg_label if seg_label <= 8 else seg_label - 7
             elif  seg_label - 7 == cur_label:
                 cur_stop = cur_stop + seg_len
-            else:         
+            else:
                 preds.append(Prediction(cur_start, cur_stop - 1, cur_label, self.essay_id))
                 cur_start = cur_stop
                 cur_stop = cur_start + seg_len

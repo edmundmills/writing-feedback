@@ -62,10 +62,10 @@ class TestEssay:
 
 class TestGetLabelsForSegments:
     def test_correct_preds(self, essay):
-        preds = essay.correct_predictions
-        segment_preds = essay.get_labels_for_segments(preds)
+        segment_lens = [len(pred) for pred in essay.correct_predictions]
+        segment_preds = essay.get_labels_for_segments(segment_lens)
         print(segment_preds)
-        assert(segment_preds == [(len(pred), pred.label) for pred in preds])
+        assert(segment_preds == [(len(pred), pred.label) for pred in essay.correct_predictions])
 
 
 class TestSegLabelsToPreds:

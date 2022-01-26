@@ -23,7 +23,8 @@ if __name__ == '__main__':
     renderer = EssayRenderer()
     predicter = Predicter()
 
-    num_essays=3
+    num_essays=10
+    predictions = 'by_seg_label'
 
     for essay in (dataset[i] for i in range(num_essays)):
         # print(essay.essay_id, len(essay.words))
@@ -32,16 +33,13 @@ if __name__ == '__main__':
         ner_probs = essay.ner_probs
         segments = predicter.segment_ner_probs(ner_probs)
         segment_lens = segments[:,:,-1].squeeze().tolist()
-        # preds = []
-        # word_idx = 0
-        # for length in segment_lens:
-        #     if length < 1: continue
-        #     pred = Prediction(word_idx, word_idx + length - 1, 0, essay.essay_id)
-        #     word_idx += length
-        #     preds.append(pred)
-        # seg_labels = essay.get_labels_for_segments(preds)
-        # seg_preds = essay.segment_labels_to_preds(seg_labels)
-        preds, _grade = predicter.by_heuristics(essay, thresholds=False)
+        if predictions == 'by_seg_label':
+            seg_labels = essay.get_labels_for_segments(segment_lens)
+            preds = essay.segment_labels_to_preds(seg_labels)
+        elif predictions == 'by_heuristics':
+            preds, _grade = predicter.by_heuristics(essay, thresholds=False)
+        else:
+            preds = None
         renderer.render(essay, segment_lens=segment_lens, predictions=preds)
         # plot_ner_output(ner_probs, segment_lens=segment_lens)
         # plot_ner_output(segments)
