@@ -13,9 +13,9 @@ class Predicter:
 
         self.proba_thresh = {
             "Lead": 0.7,
-            "Position": 0.38,
-            "Evidence": 0.55,
-            "Claim": 0.6,
+            "Position": 0.55,
+            "Evidence": 0.65,
+            "Claim": 0.55,
             "Concluding Statement": 0.7,
             "Counterclaim": 0.5,
             "Rebuttal": 0.55,
@@ -56,6 +56,13 @@ class Predicter:
                 predictions.append(pred)
             cur_pred_class = pred_class
             cur_pred_start = idx
+        pred = Prediction(cur_pred_start, idx, cur_pred_class, essay.essay_id)
+        pred_weights = pred_probs[pred.start:(pred.stop + 1)]
+        class_confidence = sum(pred_weights) / len(pred_weights)
+        if (class_confidence > self.proba_thresh[pred.argument_name] \
+                and len(pred) > self.min_thresh[pred.argument_name]) \
+                    or not thresholds:
+            predictions.append(pred)
         metrics = essay.grade(predictions)
         return predictions, metrics
 
@@ -115,4 +122,5 @@ class Predicter:
         padding = max(0, max_segments - n_segments)
         segmented = torch.cat((segmented[:max_segments], -torch.ones((padding, 16))), dim=0)
         segmented = segmented.unsqueeze(0)
-        return segmented
+        segment_lens = segmented[:,:,-1].squeeze().tolist()
+        return segmented, segment_lens

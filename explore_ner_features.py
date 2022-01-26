@@ -31,8 +31,7 @@ if __name__ == '__main__':
         # for pred in essay.correct_predictions:
         #     print(pred)
         ner_probs = essay.ner_probs
-        segments = predicter.segment_ner_probs(ner_probs)
-        segment_lens = segments[:,:,-1].squeeze().tolist()
+        segments, segment_lens = predicter.segment_ner_probs(ner_probs)
         if predictions == 'by_seg_label':
             seg_labels = essay.get_labels_for_segments(segment_lens)
             preds = essay.segment_labels_to_preds(seg_labels)

@@ -26,7 +26,7 @@ ner_num_to_token = [
     'Counterclaim (start)',
     'Rebuttal (start)',
     'Evidence (start)',
-    'Concluding Statement',
+    'Concluding Statement (start)',
     'Lead (cont)',
     'Position (cont)',
     'Claim (cont)',

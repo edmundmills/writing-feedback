@@ -85,8 +85,6 @@ class Essay:
         tokens = np.array(tokens, dtype=np.int8)
         return tokens
 
-
-
     def get_labels(self, predictions, num_d_elems=None):
         if not isinstance(predictions, list):
             predictions = [predictions]

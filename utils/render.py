@@ -75,6 +75,8 @@ class EssayRenderer:
         correct_ner_tokens = essay.ner_labels(num_words=self.num_words)
         if segment_lens:
             seg_x = list(itertools.accumulate(segment_lens))
+        else:
+            seg_x = None
         if predictions is not None:
             guess_ner_tokens = essay.ner_labels(num_words=self.num_words, predictions=predictions)
         else:
@@ -89,7 +91,7 @@ class EssayRenderer:
             if len(guess_token_str) == 1:
                 guess_token_str += ' '
 
-            seg = idx in seg_x
+            seg = bool(seg_x and idx in seg_x)
             render_word = f'{word}\t' + \
                   f'{colored(correct_token_str, *ner_color_map[correct_token])}' + \
                   '\t'.expandtabs(10) + \
