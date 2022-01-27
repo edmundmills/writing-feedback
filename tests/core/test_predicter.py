@@ -9,8 +9,8 @@ class TestSegmentTokenizer:
         segments = essay.d_elems_text
         encoded, attention_mask = tokenizer.encode(segments)
         assert(encoded.shape == (pred_args.num_ner_segments, tokenizer.max_seq_len + 1))
-        assert(attention_mask.shape == (pred_args.num_ner_segments, tokenizer.max_seq_len + 1))
-        assert(torch.sum(attention_mask[:,0]).item() == len(segments))
+        assert(attention_mask.shape == (pred_args.num_ner_segments,))
+        assert(torch.sum(attention_mask).item() == len(segments))
 
 
 class TestSegmentNERProbs:
@@ -32,8 +32,11 @@ class TestMakeNERFeatureDataset:
         assert(feature_dataset[0:1][0].size() == (1,
                                                   pred_args.num_ner_segments,
                                                   predicter.num_features))
-        # labels
+        # attention_masks
         assert(feature_dataset[0:1][1].size() == (1,
+                                                  pred_args.num_ner_segments))
+        # labels
+        assert(feature_dataset[0:1][2].size() == (1,
                                                   pred_args.num_ner_segments,
                                                   1))
 
@@ -44,20 +47,15 @@ class TestMakeSegmentTransformerDataset:
         tokenizer = SegmentTokenizer(pred_args)
         feature_dataset = predicter.segment_essay_dataset(dataset_with_ner_probs)
         feature_dataset = tokenizer.make_segment_transformer_dataset(feature_dataset)
-        # ner_features
-        assert(feature_dataset[0:1][0].size() == (1,
-                                                  pred_args.num_ner_segments,
-                                                  predicter.num_features))
         # encoded_segments
-        assert(feature_dataset[0:1][1].size() == (1,
+        assert(feature_dataset[0:1][0].size() == (1,
                                                   pred_args.num_ner_segments,
                                                   tokenizer.max_seq_len + 1))
         # attention_masks
-        assert(feature_dataset[0:1][2].size() == (1,
-                                                  pred_args.num_ner_segments,
-                                                  tokenizer.max_seq_len + 1))
+        assert(feature_dataset[0:1][1].size() == (1,
+                                                  pred_args.num_ner_segments))
         # labels
-        assert(feature_dataset[0:1][3].size() == (1,
+        assert(feature_dataset[0:1][2].size() == (1,
                                                   pred_args.num_ner_segments,
                                                   1))
 
@@ -67,6 +65,6 @@ class TestClassifierForward:
         predicter = Predicter(pred_args)
         feature_dataset = predicter.segment_essay_dataset(dataset_with_ner_probs, print_avg_grade=True)
         feature_dataset = predicter.make_ner_feature_dataset(feature_dataset)
-        sample = feature_dataset[0:1][0].to(predicter.classifier.device)
+        sample = feature_dataset[0:2][0].to(predicter.classifier.device)
         output = predicter.classifier(sample)
-        assert(output.size() == (1, pred_args.num_ner_segments, predicter.classifier.num_outputs))
+        assert(output.size() == (2, pred_args.num_ner_segments, predicter.classifier.num_outputs))

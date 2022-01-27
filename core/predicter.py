@@ -34,27 +34,24 @@ class SegmentTokenizer(SentenceTransformer):
                                     torch.ones(self.max_d_elems - num_segments, self.max_seq_len + 1)))
         attention_mask = torch.cat((attention_mask[:self.max_d_elems,:],
                                     torch.zeros(self.max_d_elems - num_segments, self.max_seq_len + 1)))
-        return encoded, attention_mask
+        return encoded, attention_mask[...,0]
 
     def make_segment_transformer_dataset(self, essay_dataset):
         print('Making Segment Transformer Dataset...')
-        ner_features = []
         encoded_segments = []
         attention_masks = []
         labels = []
-        for essay in essay_dataset:
-            essay_ner_features, seg_lens, essay_labels = essay.segments
+        for essay in tqdm.tqdm(essay_dataset):
+            _essay_ner_features, seg_lens, essay_labels = essay.segments
             text = essay.text_from_segments(seg_lens, join=True)
             encoded, attention_mask = self.encode(text)
-            ner_features.append(essay_ner_features)
             encoded_segments.append(encoded)
-            attention_masks.append(attention_mask)
+            attention_masks.append(attention_mask.bool())
             labels.append(essay_labels)
-        ner_features = torch.cat(ner_features, dim=0)
-        labels = torch.stack(labels, dim=0).unsqueeze(-1)
-        attention_masks = torch.stack(attention_masks, dim=0)
         encoded_segments = torch.stack(encoded_segments, dim=0)
-        dataset = TensorDataset(ner_features, encoded_segments, attention_masks, labels)
+        attention_masks = torch.stack(attention_masks, dim=0)
+        labels = torch.stack(labels, dim=0).unsqueeze(-1)
+        dataset = TensorDataset(encoded_segments, attention_masks, labels)
         print(f'Dataset created with {len(dataset)} samples')
         return dataset
 
@@ -62,27 +59,35 @@ class SegmentTokenizer(SentenceTransformer):
 class NERClassifier(Model):
     def __init__(self, pred_args):
         super().__init__()
-        d_model = len(ner_num_to_token) + 1
+        if pred_args.name == 'Attention':
+            d_model = len(ner_num_to_token) + 1
+        elif pred_args.name == 'SentenceTransformer':
+            d_model = 769
         self.num_outputs = len(ner_num_to_token)
         self.seq_len = pred_args.num_ner_segments
-        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model,
+        self.linear = MLP(n_inputs=d_model,
+                            n_outputs=pred_args.intermediate_layer_size,
+                            n_layers=pred_args.num_linear_layers,
+                            layer_size=pred_args.linear_layer_size,
+                            dropout=pred_args.dropout).to(self.device)
+        self.positional_encoder = PositionalEncoder(features=pred_args.intermediate_layer_size,
+                                                    seq_len=self.seq_len,
+                                                    device=self.device)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=pred_args.intermediate_layer_size,
                                                    nhead=pred_args.n_head,
                                                    batch_first=True)
         self.attention = nn.TransformerEncoder(encoder_layer,
                                                pred_args.num_attention_layers).to(self.device)
-        self.positional_encoder = PositionalEncoder(features=d_model,
-                                                    seq_len=self.seq_len,
-                                                    device=self.device)
-        self.linear = MLP(n_inputs=d_model,
+        self.head = MLP(n_inputs=pred_args.intermediate_layer_size,
                           n_outputs=self.num_outputs,
-                          n_layers=pred_args.num_linear_layers,
-                          dropout=pred_args.dropout,
-                          layer_size=pred_args.linear_layer_size).to(self.device)
+                          n_layers=1,
+                          layer_size=None).to(self.device)
     
     def forward(self, features):
-        y = self.positional_encoder(features)
+        y = self.linear(features)
+        y = self.positional_encoder(y)
         y = self.attention(y)
-        y = self.linear(y)
+        y = self.head(y)
         return y
 
     def learn(self, train_dataset, val_dataset, args):
@@ -101,14 +106,14 @@ class NERClassifier(Model):
         with Mode(self, 'train'):
             for epoch in range(1, args.epochs + 1):
                 print(f'Starting epoch {epoch}')
-                for ner_features, labels in dataloader:
+                for features, attention_mask, labels in dataloader:
                     step += 1
-                    ner_features = ner_features.to(self.device)
+                    features = features.to(self.device)
+                    attention_mask = attention_mask.to(self.device)
                     labels = labels.to(self.device)
-                    output = self(ner_features)
-                    output = output.reshape(-1, 15)
-                    labels = labels.reshape(-1)
-
+                    output = self(features)
+                    output = output[attention_mask]
+                    labels = labels[attention_mask].squeeze()
                     loss = F.cross_entropy(output, labels)
 
                     optimizer.zero_grad()
@@ -149,13 +154,14 @@ class NERClassifier(Model):
         running_preds = []
         running_labels = []
         with Mode(self, 'eval'):
-            for idx, (ner_features, labels) in enumerate(dataloader, start=1):
-                ner_features = ner_features.to(self.device)
+            for idx, (features, msk, labels) in enumerate(dataloader, start=1):
+                features = features.to(self.device)
                 labels = labels.to(self.device)
+                msk = msk.to(self.device)
                 with torch.no_grad():
-                    output = self(ner_features)
-                    output = output.reshape(-1, 15)
-                    labels = labels.reshape(-1)
+                    output = self(features)
+                    output = output[msk]
+                    labels = labels[msk].squeeze()
                     loss = F.cross_entropy(output, labels)
                 losses.append(loss.item())
                 probs = F.softmax(output, dim=-1).cpu().numpy()
@@ -336,12 +342,16 @@ class Predicter:
         print('Making NER Feature Dataset...')
         features = []
         labels = []
+        attention_masks = []
         for _essay_id, (ner_features, _seg_lens, essay_labels) in tqdm.tqdm(essay_dataset.segments.items()):
+            attention_mask = (ner_features[...,0] != -1)
+            attention_masks.append(attention_mask.bool())
             features.append(ner_features)
             labels.append(essay_labels)
         features = torch.cat(features, dim=0)
+        attention_masks = torch.cat(attention_masks, dim=0)
         labels = torch.stack(labels, dim=0).unsqueeze(-1)
-        dataset = TensorDataset(features, labels)
+        dataset = TensorDataset(features, attention_masks, labels)
         print(f'Dataset created with {len(dataset)} samples')
         return dataset
 
