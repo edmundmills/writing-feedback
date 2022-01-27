@@ -17,5 +17,5 @@ print_interval: 100
 eval_interval: 200
 eval_samples: 640
 
-load_ner_features: True
-save_ner_features: False
+load_ner_features: False
+save_ner_features: True

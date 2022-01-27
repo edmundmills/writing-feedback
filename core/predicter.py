@@ -1,3 +1,4 @@
+from cProfile import label
 from collections import deque
 from os import remove
 import time
@@ -269,11 +270,10 @@ class Predicter:
         segment_lens = segmented[:,:,-1].squeeze().tolist()
         return segmented, segment_lens
 
-    def make_ner_feature_dataset(self, essay_dataset, print_avg_grade=False):
-        print('Making NER Feature Dataset...')
+    def segment_essay_dataset(self, essay_dataset, print_avg_grade=False):
+        print('Segmenting Dataset...')
         scores = []
-        features = []
-        labels = []
+        segments = {}
         for essay in tqdm.tqdm(essay_dataset):
             ner_features, segment_lens = self.segment_ner_probs(essay.ner_probs)
             essay_labels = essay.get_labels_for_segments(segment_lens)
@@ -282,13 +282,23 @@ class Predicter:
                 score = essay.grade(preds)['f_score']
                 scores.append(score)
             essay_labels = torch.LongTensor([seg_label for _, seg_label in essay_labels])
+            segments[essay.essay_id] = (ner_features, segment_lens, essay_labels)
+        essay_dataset.segments = segments
+        print('Dataset Segmented')
+        if print_avg_grade:
+            grade = sum(scores) / len(scores)
+            print(f'Average Maximum Possible Grade: {grade}')
+        return essay_dataset
+
+    def make_ner_feature_dataset(self, essay_dataset):
+        print('Making NER Feature Dataset...')
+        features = []
+        labels = []
+        for _essay_id, (ner_features, _seg_lens, essay_labels) in tqdm.tqdm(essay_dataset.segments.items()):
             features.append(ner_features)
             labels.append(essay_labels)
         features = torch.cat(features, dim=0)
         labels = torch.stack(labels, dim=0).unsqueeze(-1)
         dataset = TensorDataset(features, labels)
         print(f'Dataset created with {len(dataset)} samples')
-        if print_avg_grade:
-            grade = sum(scores) / len(scores)
-            print(f'Average Maximum Possible Grade: {grade}')
         return dataset

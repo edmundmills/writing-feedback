@@ -19,8 +19,8 @@ if __name__ == '__main__':
     args = parse_args()
     args = get_config('base', args)
 
-    ner_dataset = EssayDataset.load(args.ner_dataset_path)
     if not args.predict.load_ner_features:
+        ner_dataset = EssayDataset.load(args.ner_dataset_path)
         if args.debug:
             dataset = EssayDataset(n_essays=20)
             dataset.ner_probs = ner_dataset.ner_probs
@@ -31,29 +31,22 @@ if __name__ == '__main__':
             args.predict.epochs = 10
         else:
             dataset = ner_dataset
+        predicter = Predicter(args.predict)
+        dataset = predicter.segment_essay_dataset(dataset, print_avg_grade=True)
+        if args.predict.save_ner_features and not args.debug:
+            dataset.save(args.segmented_dataset_path)
     else:
-        dataset = ner_dataset
+        EssayDataset.load(args.segmented_dataset_path)
 
     first_run_name = None
+
 
     for fold in dataset.folds:
         predicter = Predicter(args.predict)
         print(f'Starting training on fold {fold}')
-
-        if not args.predict.load_ner_features:
-            train, val = dataset.get_fold(fold)
-            train = predicter.make_ner_feature_dataset(train)
-            val = predicter.make_ner_feature_dataset(val)
-            if args.predict.save_ner_features and not args.debug:
-                with open(f'data/ner_features_fold_{fold}_train', 'wb') as filename:
-                    pickle.dump(train, filename)
-                with open(f'data/ner_features_fold_{fold}_val', 'wb') as filename:
-                    pickle.dump(val, filename)
-        else:
-            with open(f'data/ner_features_fold_{fold}_train', 'rb') as filename:
-                train = pickle.load(filename)
-            with open(f'data/ner_features_fold_{fold}_val', 'rb') as filename:
-                val = pickle.load(filename)
+        train, val = dataset.get_fold(fold)
+        train = predicter.make_ner_feature_dataset(train)
+        val = predicter.make_ner_feature_dataset(val)
         print(f'Training dataset size: {len(train)}')
         print(f'Validation dataset size: {len(val)}')
 
