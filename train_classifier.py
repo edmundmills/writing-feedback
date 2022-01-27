@@ -20,7 +20,7 @@ if __name__ == '__main__':
     args = get_config('base', args)
 
     if not args.predict.load_ner_features:
-        ner_dataset = EssayDataset.load(args.ner_dataset_path)
+        ner_dataset = EssayDataset.load(args.baseline_ner_dataset_path)
         if args.debug:
             dataset = EssayDataset(n_essays=20)
             dataset.ner_probs = ner_dataset.ner_probs
