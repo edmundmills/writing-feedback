@@ -13,6 +13,7 @@ from core.essay import Essay
 class EssayDataset:
     def __init__(self, n_essays=None, essay_ids=None, full_dataset=None) -> None:
         self.ner_probs = {}
+        self.segments = {}
         if n_essays:
             print(f'Loading data for {n_essays} essays')
             essay_ids, self.df = self._load_n_essays(n_essays=n_essays)
@@ -42,6 +43,8 @@ class EssayDataset:
             self.essays[essay_id] = essay
         if full_dataset and len(full_dataset.ner_probs) > 0:
             self.ner_probs = full_dataset.ner_probs
+        if full_dataset and len(full_dataset.segments) > 0:
+            self.segments = full_dataset.segments
         print(f'Essay dataset created with {len(self)} essays.')
 
     def _load_n_essays(self, n_essays):
@@ -64,6 +67,7 @@ class EssayDataset:
                       essay_data['text'],
                       essay_data['labels'],
                       ner_probs=self.ner_probs.get(essay_id, None),
+                      segments=self.segments.get(essay_id, None),
                       fold=essay_data['fold'])
         return essay
 
@@ -135,6 +139,13 @@ class EssayDataset:
                 if ner_probs is not None:
                     pruned_dict[essay_id] = ner_probs
             __value = pruned_dict
+        if __name == 'segments' and 'essay_ids' in self.__dict__:
+            pruned_dict = {}
+            for essay_id in self.essay_ids:
+                segments = __value.get(essay_id, None)
+                if segments is not None:
+                    pruned_dict[essay_id] = segments
+            __value = pruned_dict
         object.__setattr__(self, __name, __value)
 
 
@@ -159,5 +170,6 @@ class EssayDataset:
         new_dataset.essay_ids += ds.essay_ids
         new_dataset.essays.update(ds.essays)
         new_dataset.ner_probs.update(ds.ner_probs)
+        new_dataset.segments.update(ds.segments)
         new_dataset.df = pd.concat((new_dataset.df, ds.df))
         return new_dataset

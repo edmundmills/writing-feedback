@@ -48,12 +48,14 @@ class Prediction:
 
 
 class Essay:
-    def __init__(self, essay_id, text, labels, ner_probs=None, fold=None) -> None:
+    def __init__(self, essay_id, text, labels,
+                 ner_probs=None, fold=None, segments=None) -> None:
         self.essay_id = essay_id
         self.text = text
         self.labels = labels
         self.ner_probs = ner_probs
         self.fold = fold
+        self.segments = segments
 
     def __len__(self):
         return len(self.words)

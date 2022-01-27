@@ -53,6 +53,16 @@ class TestEssayDataset:
         assert(dataset.ner_probs == ner_probs)
         assert(dataset.ner_probs is not ner_probs)
 
+    def test_set_segments(self, dataset):
+        assert(dataset.segments == {})
+        segments = {'dsf': 'sdfgsdfg'}
+        dataset.segments = segments
+        assert(dataset.segments == {})
+        segments = {k: 'test' for k in dataset.essay_ids}
+        dataset.segments = segments
+        assert(dataset.segments == segments)
+        assert(dataset.segments is not segments)
+
     def test_add_dataset(self, dataset_with_ner_probs):
         dataset = dataset_with_ner_probs
         datasets = dataset.split([.5,.5])
