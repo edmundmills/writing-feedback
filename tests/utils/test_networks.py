@@ -4,7 +4,7 @@ from utils.networks import *
 
 
 def test_positional_encoding():
-    pos_encoder = PositionalEncoder(32)
+    pos_encoder = PositionalEncoder(seq_len=20, features=768)
     input_tokens = torch.rand(20, 768)
     pos_encoded = pos_encoder(input_tokens)
     assert(pos_encoded.size() == input_tokens.size())
