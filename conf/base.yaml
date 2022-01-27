@@ -10,6 +10,7 @@ name: base
 
 dataset_path: 'data/full_dataset.pkl'
 ner_dataset_path: 'data/dataset_with_ner.pkl'
+baseline_ner_dataset_path: 'data/baseline_ner_dataset.pkl'
 ner_model_name: lemon-dream-5
 
 debug: False

@@ -1,4 +1,5 @@
 from collections import deque
+from os import remove
 import time
 from typing import Union
 
@@ -160,6 +161,7 @@ class Predicter:
             'None': -1
         }
         self.num_ner_segments = pred_args.num_ner_segments
+        self.seg_thresh = pred_args.seg_confidence_thresh
         self.classifier = NERClassifier(pred_args)
         self.num_features = len(ner_num_to_token) + 1
 
@@ -212,18 +214,28 @@ class Predicter:
         delta_probs = ner_probs - ner_probs_offset
         max_delta = torch.max(delta_probs, dim=-1, keepdim=True).values
         start_probs += max_delta
-        target_segments = self.num_ner_segments
-        result_segments = 0
-        while result_segments < self.num_ner_segments:
-            threshold, _ = torch.kthvalue(start_probs, num_words - target_segments + 1, dim=1)
-            threshold = threshold.item()
-            segments = start_probs > threshold
-            segments[:,0,:] = True
-            for i in range(1, num_words):
+
+        def remove_adjacent(segments):
+            for i in range(1, segments.size(1)):
                 if (segments[:,i-1,:] or segments[:,i-2,:]) and segments[:,i,:]:
                     segments[:,i,:] = False
-            result_segments = torch.sum(segments).item()
-            target_segments += self.num_ner_segments - result_segments
+            return segments
+
+        segments = start_probs > self.seg_thresh
+        segments[:,0,:] = True
+        segments = remove_adjacent(segments)
+        result_segments = torch.sum(segments).item()
+
+        if result_segments > self.num_ner_segments:
+            target_segments = result_segments
+            while result_segments != self.num_ner_segments:
+                threshold, _ = torch.kthvalue(start_probs, num_words - target_segments + 1, dim=1)
+                threshold = threshold.item()
+                segments = start_probs > threshold
+                segments[:,0,:] = True
+                segments = remove_adjacent(segments)
+                result_segments = torch.sum(segments).item()
+                target_segments += self.num_ner_segments - result_segments
         segments = segments.squeeze().tolist()
         segment_data = []
         cur_seg_data = []

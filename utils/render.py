@@ -74,7 +74,7 @@ class EssayRenderer:
         print(f'Num Words: {len(essay)}')
         correct_ner_tokens = essay.ner_labels(num_words=self.num_words)
         if segment_lens:
-            seg_x = list(itertools.accumulate(segment_lens))
+            seg_x = [0] + list(itertools.accumulate(seg_len for seg_len in segment_lens if seg_len > 0))
         else:
             seg_x = None
         if predictions is not None:

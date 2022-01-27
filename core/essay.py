@@ -98,8 +98,9 @@ class Essay:
         return labels
 
     def get_labels_for_segments(self, segment_lens:List[int]) -> List[Tuple[int, int]]:
-        seg_labels = [0] * len(segment_lens)
-        matched_label_idxs = [None] * len(segment_lens)
+        num_labels = len(segment_lens)
+        seg_labels = [0] * num_labels
+        matched_label_idxs = [None] * num_labels
 
         word_indices = np.arange(len(self))
         label_arrays = []
@@ -108,7 +109,7 @@ class Essay:
             label_array = (word_indices >= start_num(pstring)) * (word_indices <= end_num(pstring))
             label_arrays.append((label_array, de_type_to_num[d_type]))
 
-        right_borders = list(itertools.accumulate(segment_lens))
+        right_borders = list(itertools.accumulate(seg_len for seg_len in segment_lens if seg_len > 0))
         left_border = 0
 
         for idx, right_border in enumerate(right_borders):
@@ -130,11 +131,12 @@ class Essay:
     def segment_labels_to_preds(self, seg_labels) -> List[Prediction]:
         preds = []
         for idx, (seg_len, seg_label) in enumerate(seg_labels):
-            if idx ==0:
+            if seg_len <= 0: continue
+            if idx == 0:
                 cur_start = 0
                 cur_stop = seg_len
                 cur_label = seg_label if seg_label <= 8 else seg_label - 7
-            elif  seg_label - 7 == cur_label:
+            elif cur_label != 0 and seg_label - 7 == cur_label:
                 cur_stop = cur_stop + seg_len
             else:
                 preds.append(Prediction(cur_start, cur_stop - 1, cur_label, self.essay_id))
