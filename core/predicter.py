@@ -1,9 +1,8 @@
-from cProfile import label
 from collections import deque
-from os import remove
 import time
-from typing import Union
+from typing import Union, List
 
+from sentence_transformers import SentenceTransformer
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,6 +14,49 @@ import wandb
 from core.essay import Prediction
 from utils.constants import ner_num_to_token
 from utils.networks import Model, MLP, PositionalEncoder, Mode
+
+
+class SegmentTokenizer(SentenceTransformer):
+    def __init__(self, pred_args):
+        print('Loading Segment Tokenizer...')
+        super().__init__('sentence-transformers/all-mpnet-base-v2')
+        self.max_d_elems = pred_args.num_ner_segments
+        self.max_seq_len = 768
+        print('Segment Tokenizer Loaded')
+
+    def encode(self, segments):
+        num_segments = len(segments)
+        seg_lens = torch.LongTensor([len(seg.split()) for seg in segments]).unsqueeze(-1)
+        encoded = super().encode(segments, convert_to_numpy=False, convert_to_tensor=True).cpu()
+        encoded = torch.cat((encoded, seg_lens), dim=-1)
+        attention_mask = torch.ones_like(encoded)
+        encoded = torch.cat((encoded[:self.max_d_elems,:],
+                                    torch.ones(self.max_d_elems - num_segments, self.max_seq_len + 1)))
+        attention_mask = torch.cat((attention_mask[:self.max_d_elems,:],
+                                    torch.zeros(self.max_d_elems - num_segments, self.max_seq_len + 1)))
+        return encoded, attention_mask
+
+    def make_segment_transformer_dataset(self, essay_dataset):
+        print('Making Segment Transformer Dataset...')
+        ner_features = []
+        encoded_segments = []
+        attention_masks = []
+        labels = []
+        for essay in essay_dataset:
+            essay_ner_features, seg_lens, essay_labels = essay.segments
+            text = essay.text_from_segments(seg_lens, join=True)
+            encoded, attention_mask = self.encode(text)
+            ner_features.append(essay_ner_features)
+            encoded_segments.append(encoded)
+            attention_masks.append(attention_mask)
+            labels.append(essay_labels)
+        ner_features = torch.cat(ner_features, dim=0)
+        labels = torch.stack(labels, dim=0).unsqueeze(-1)
+        attention_masks = torch.stack(attention_masks, dim=0)
+        encoded_segments = torch.stack(encoded_segments, dim=0)
+        dataset = TensorDataset(ner_features, encoded_segments, attention_masks, labels)
+        print(f'Dataset created with {len(dataset)} samples')
+        return dataset
 
 
 class NERClassifier(Model):
@@ -302,3 +344,4 @@ class Predicter:
         dataset = TensorDataset(features, labels)
         print(f'Dataset created with {len(dataset)} samples')
         return dataset
+

@@ -16,9 +16,10 @@ from utils.render import plot_ner_output, EssayRenderer
 if __name__ == '__main__':
 
     render = False
+    print_segments = False
     score = True
     plot_segments = False
-    num_essays = 100
+    num_essays = 10
     essay_id = None
     predictions = 'by_seg_label'
 
@@ -41,6 +42,11 @@ if __name__ == '__main__':
             essay = dataset.get_by_id(essay_id)
         ner_probs = essay.ner_probs
         segments, segment_lens = predicter.segment_ner_probs(ner_probs)
+        if print_segments:
+            text = essay.text_from_segments(segment_lens)
+            for t in text:
+                print(' '.join(t))
+                print('\n')
         num_seg = sum([1 for seg_len in segment_lens if seg_len > 0])
         num_segments.append(num_seg)
         running_seg_lens.extend([seg_len for seg_len in segment_lens if seg_len > 0])

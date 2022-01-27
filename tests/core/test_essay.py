@@ -75,6 +75,14 @@ class TestSegLabelsToPreds:
         new_preds = essay.segment_labels_to_preds(segment_preds)
         assert(all([pred == new_pred for pred, new_pred in zip(preds, new_preds)]))
 
+class TestTextFromSegments:
+    def test_valid(self, essay):
+        seg_lens = essay.correct_segment_lens
+        text = essay.text_from_segments(seg_lens)
+        for t in text:
+            print(' '.join(t))
+        assert(len(text) == len(essay.correct_predictions))
+        assert(sum(len(t) for t in text) == len(essay))
 
 class TestNERLabels:
     def test_valid(self, prediction, essay):

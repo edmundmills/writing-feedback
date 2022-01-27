@@ -148,6 +148,14 @@ class Essay:
         preds.append(Prediction(cur_start, cur_stop - 1, cur_label, self.essay_id))
         return preds
 
+    def text_from_segments(self, segment_lens, join=False):
+        right_borders = list(itertools.accumulate(int(seg_len) for seg_len in segment_lens if seg_len > 0))
+        left_borders  = [0] + right_borders[:-1]
+        text = [self.words[l:r] for l, r in zip(left_borders, right_borders)]
+        if join:
+            text = [' '.join(t) for t in text]
+        return text
+
     def grade(self, predictions:List[Dict]):
         if not isinstance(predictions, list):
             predictions = list(predictions)
@@ -216,3 +224,7 @@ class Essay:
             pstrings.append(pstring)
             i += n + 1
         return pstrings
+
+    @property
+    def correct_segment_lens(self):
+        return [len(pred) for pred in self.correct_predictions]

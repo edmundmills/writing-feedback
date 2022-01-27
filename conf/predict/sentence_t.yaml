@@ -1,4 +1,4 @@
-name: Attention
+name: SentenceTransformer
 
 num_ner_segments: 40
 seg_confidence_thresh: 0.05
@@ -15,7 +15,7 @@ learning_rate: 1e-3
 
 print_interval: 100
 eval_interval: 200
-eval_samples: 3200
+eval_samples: 640
 
-load_ner_features: False
-save_ner_features: True
+load_ner_features: True
+save_ner_features: False

@@ -21,8 +21,6 @@ if __name__ == '__main__':
 
     if not args.predict.load_ner_features:
         ner_dataset = EssayDataset.load(args.ner_dataset_path)
-        if 'segments' not in ner_dataset.__dict__:
-            ner_dataset.segments = {}
         if args.debug:
             dataset = EssayDataset(n_essays=20)
             dataset.ner_probs = ner_dataset.ner_probs

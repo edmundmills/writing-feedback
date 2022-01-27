@@ -162,6 +162,8 @@ class EssayDataset:
             dataset = pickle.load(saved_file)
         if not isinstance(dataset, cls):
             raise TypeError('File does not contain a dataset')
+        if 'segments' not in dataset.__dict__:
+            dataset.segments = {}
         print(f'Dataset Loaded with {len(dataset)} essays')
         return dataset
 
