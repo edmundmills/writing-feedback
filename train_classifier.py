@@ -11,7 +11,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
-from core.predicter import Predicter, SegmentTokenizer, NERClassifier
+from core.predicter import Predicter, SegmentTokenizer, NERClassifier, SegmentClassifier
 from core.dataset import EssayDataset
 from utils.config import parse_args, get_config, WandBRun
 
@@ -59,13 +59,14 @@ if __name__ == '__main__':
         with WandBRun(args, project_name='classifier'):
             print(f'Starting training on fold {fold}')
             train, val = dataset.get_fold(fold)
-            classifier = NERClassifier(args.predict)
-            if args.predict.name == 'Attention':
-                train = classifier.make_ner_feature_dataset(train)
-                val = classifier.make_ner_feature_dataset(val)
-            elif args.predict.name == 'SentenceTransformer':
+            if args.predict.name == 'SentenceTransformer':
+                classifier = SegmentClassifier(args.predict)
                 train = classifier.make_segment_transformer_dataset(train)
                 val = classifier.make_segment_transformer_dataset(val)
+            elif args.predict.name == 'Attention':
+                classifier = NERClassifier(args.predict)
+                train = classifier.make_ner_feature_dataset(train)
+                val = classifier.make_ner_feature_dataset(val)
             print(f'Training dataset size: {len(train)}')
             print(f'Validation dataset size: {len(val)}')
 

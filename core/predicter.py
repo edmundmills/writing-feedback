@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
+from transformers import BertModel
 import tqdm
 import numpy as np
 import wandb
@@ -47,13 +48,80 @@ class SegmentTokenizer(SentenceTransformer):
         return essay_dataset
 
 
+class SegmentClassifier(Model):
+    def __init__(self, pred_args) -> None:
+        super().__init__()
+        self.model = BertModel.from_pretrained("bert-base-uncased").to(self.device)
+        self.seq_len = pred_args.num_ner_segments
+        self.num_outputs = len(ner_num_to_token)
+        self.head = MLP(n_inputs=768,
+                        n_outputs=self.num_outputs,
+                        n_layers=1,
+                        layer_size=None).to(self.device)
+
+    def forward(self, input_ids, attention_mask):
+        pass  
+
+    def loss(self, sample, eval=False):
+        metrics = {}
+        input_ids, attention_mask, labels = sample
+        input_ids = input_ids.to(self.device)
+        attention_mask = attention_mask.to(self.device)
+        labels = labels.to(self.device)
+        output = self(input_ids, attention_mask)
+        output = output[attention_mask]
+        labels = labels[attention_mask].squeeze()
+        loss = F.cross_entropy(output, labels)
+        if self.eval:
+            probs = F.softmax(output, dim=-1).cpu().numpy()
+            preds = np.argmax(probs, axis=-1).flatten()
+            labels = labels.cpu().numpy().flatten()
+            metrics.update({
+                'Eval Loss': loss.item(),
+                'Probs': probs,
+                'Preds': preds,
+                'Labels': labels,
+            })
+        return loss, metrics
+
+    def process_eval_metrics(self, metrics):
+        avg_loss = sum(metrics['Eval Loss']) / len(metrics['Eval Loss'])
+        preds = metrics['Preds'].flatten()
+        labels = metrics['Probs'].flatten()
+        correct = np.equal(preds, labels)
+        avg_acc = sum(correct) / len(correct)            
+        eval_metrics = {'Eval Loss': avg_loss,
+                        'Eval Accuracy': avg_acc}
+        seg_confusion_matrix = wandb.plot.confusion_matrix(
+            y_true=labels,
+            preds=preds,
+            class_names=ner_num_to_token)
+        eval_metrics.update({'Confusion Matrix': seg_confusion_matrix})
+        return eval_metrics
+
+    def make_segment_transformer_dataset(self, essay_dataset):
+        print('Making Segment Transformer Dataset...')
+        encoded_segments = []
+        attention_masks = []
+        labels = []
+        for essay in tqdm.tqdm(essay_dataset):
+            _essay_ner_features, seg_lens, essay_labels = essay.segments
+            input_ids, attention_mask = essay.segment_tokens
+            encoded_segments.append(input_ids)
+            attention_masks.append(attention_mask)
+            labels.append(essay_labels)
+        encoded_segments = torch.stack(encoded_segments, dim=0)
+        attention_masks = torch.stack(attention_masks, dim=0)
+        labels = torch.stack(labels, dim=0).unsqueeze(-1)
+        dataset = TensorDataset(encoded_segments, attention_masks, labels)
+        print(f'Dataset created with {len(dataset)} samples')
+        return dataset
+
+
 class NERClassifier(Model):
     def __init__(self, pred_args):
         super().__init__()
-        if pred_args.name == 'Attention':
-            d_model = len(ner_num_to_token) + 1
-        elif pred_args.name == 'SentenceTransformer':
-            d_model = 769
+        d_model = len(ner_num_to_token) + 1
         self.num_outputs = len(ner_num_to_token)
         self.seq_len = pred_args.num_ner_segments
         self.linear = MLP(n_inputs=d_model,
