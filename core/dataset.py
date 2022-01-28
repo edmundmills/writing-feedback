@@ -12,8 +12,6 @@ from core.essay import Essay
 
 class EssayDataset:
     def __init__(self, n_essays=None, essay_ids=None, full_dataset=None) -> None:
-        self.ner_probs = {}
-        self.segments = {}
         if n_essays:
             print(f'Loading data for {n_essays} essays')
             essay_ids, self.df = self._load_n_essays(n_essays=n_essays)
@@ -41,10 +39,6 @@ class EssayDataset:
             else:
                 essay = full_dataset.essays[essay_id]
             self.essays[essay_id] = essay
-        if full_dataset and len(full_dataset.ner_probs) > 0:
-            self.ner_probs = full_dataset.ner_probs
-        if full_dataset and len(full_dataset.segments) > 0:
-            self.segments = full_dataset.segments
         print(f'Essay dataset created with {len(self)} essays.')
 
     def _load_n_essays(self, n_essays):
@@ -63,12 +57,8 @@ class EssayDataset:
 
     def get_by_id(self, essay_id):
         essay_data = self.essays[essay_id]
-        essay = Essay(essay_id,
-                      essay_data['text'],
-                      essay_data['labels'],
-                      ner_probs=self.ner_probs.get(essay_id, None),
-                      segments=self.segments.get(essay_id, None),
-                      fold=essay_data['fold'])
+        essay = Essay(essay_id=essay_id,
+                      **essay_data)
         return essay
 
     def __len__(self):
@@ -131,24 +121,6 @@ class EssayDataset:
         print(f'Dataset split into datasets with sizes {[len(ds) for ds in datasets]}')
         return datasets
 
-    def __setattr__(self, __name: str, __value: Any) -> None:
-        if __name == 'ner_probs' and 'essay_ids' in self.__dict__:
-            pruned_dict = {}
-            for essay_id in self.essay_ids:
-                ner_probs = __value.get(essay_id, None)
-                if ner_probs is not None:
-                    pruned_dict[essay_id] = ner_probs
-            __value = pruned_dict
-        if __name == 'segments' and 'essay_ids' in self.__dict__:
-            pruned_dict = {}
-            for essay_id in self.essay_ids:
-                segments = __value.get(essay_id, None)
-                if segments is not None:
-                    pruned_dict[essay_id] = segments
-            __value = pruned_dict
-        object.__setattr__(self, __name, __value)
-
-
     def save(self, path):
         print(f'Saving Dataset to {str(path)}')
         with open(path, 'wb') as save_file:
@@ -162,8 +134,19 @@ class EssayDataset:
             dataset = pickle.load(saved_file)
         if not isinstance(dataset, cls):
             raise TypeError('File does not contain a dataset')
-        if 'segments' not in dataset.__dict__:
-            dataset.segments = {}
+        save = False
+        if 'segments' in dataset.__dict__:
+            for k, v in dataset.segments.items():
+                dataset.essays[k]['segments'] = v
+            delattr(dataset, 'segments')
+            save = True
+        if 'ner_probs' in dataset.__dict__:
+            for k, v in dataset.ner_probs.items():
+                dataset.essays[k]['ner_probs'] = v
+            delattr(dataset, 'ner_probs')
+            save = True
+        if save:
+            dataset.save(str(path))
         print(f'Dataset Loaded with {len(dataset)} essays')
         return dataset
 
@@ -171,7 +154,9 @@ class EssayDataset:
         new_dataset = self.split([1])[0]
         new_dataset.essay_ids += ds.essay_ids
         new_dataset.essays.update(ds.essays)
-        new_dataset.ner_probs.update(ds.ner_probs)
-        new_dataset.segments.update(ds.segments)
         new_dataset.df = pd.concat((new_dataset.df, ds.df))
         return new_dataset
+    
+    def copy_essays(self, other):
+        for essay_id in self.essay_ids:
+            self.essays[essay_id] = other.essays[essay_id]

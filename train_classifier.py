@@ -11,7 +11,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
-from core.predicter import Predicter, SegmentTokenizer
+from core.predicter import Predicter, SegmentTokenizer, NERClassifier
 from core.dataset import EssayDataset
 from utils.config import parse_args, get_config, WandBRun
 
@@ -31,10 +31,19 @@ if __name__ == '__main__':
             ner_dataset.save(args.segmented_dataset_path)
     else:
         ner_dataset = EssayDataset.load(args.segmented_dataset_path)
+
+    if args.predict.name == 'SentenceTransformer':
+        if not args.predict.load_seg_tokens:
+            tokenizer = SegmentTokenizer(args.predict)
+            dataset = tokenizer.tokenize_dataset(ner_dataset)
+            if args.predict.save_seg_tokens and not args.debug:
+                dataset.save(args.tokenized_dataset_path)
+        else:
+            ner_dataset = EssayDataset.load(args.tokenized_dataset_path)
+
     if args.debug:
         dataset = EssayDataset(n_essays=20)
-        dataset.ner_probs = ner_dataset.ner_probs
-        dataset.segments = ner_dataset.segments
+        dataset.copy_essays(ner_dataset)
         dataset.make_folds(2)
         args.predict.print_interval = 10
         args.predict.eval_interval = 10
@@ -43,26 +52,25 @@ if __name__ == '__main__':
     else:
         dataset = ner_dataset
 
+
     first_run_name = None
 
     for fold in dataset.folds:
-        predicter = Predicter(args.predict)
-        print(f'Starting training on fold {fold}')
-        train, val = dataset.get_fold(fold)
-        if args.predict.name == 'Attention':
-            train = predicter.make_ner_feature_dataset(train)
-            val = predicter.make_ner_feature_dataset(val)
-        elif args.predict.name == 'SentenceTransformer':
-            tokenizer = SegmentTokenizer(args.predict)
-            train = tokenizer.make_segment_transformer_dataset(train)
-            val = tokenizer.make_segment_transformer_dataset(val)
-        print(f'Training dataset size: {len(train)}')
-        print(f'Validation dataset size: {len(val)}')
-
         with WandBRun(args, project_name='classifier'):
+            print(f'Starting training on fold {fold}')
+            train, val = dataset.get_fold(fold)
+            classifier = NERClassifier(args.predict)
+            if args.predict.name == 'Attention':
+                train = classifier.make_ner_feature_dataset(train)
+                val = classifier.make_ner_feature_dataset(val)
+            elif args.predict.name == 'SentenceTransformer':
+                train = classifier.make_segment_transformer_dataset(train)
+                val = classifier.make_segment_transformer_dataset(val)
+            print(f'Training dataset size: {len(train)}')
+            print(f'Validation dataset size: {len(val)}')
+
             run_name = wandb.run.name if args.wandb else 'test'
             first_run_name = first_run_name or run_name
-            classifier = predicter.classifier
             classifier.learn(train, val, args)
             if args.ner.save_model:
                 model_name = f'{first_run_name}_fold_{fold}_{wandb.run.name}' if args.wandb else 'test'

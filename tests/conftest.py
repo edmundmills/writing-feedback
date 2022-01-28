@@ -123,9 +123,8 @@ def encoded_preds():
 @pytest.fixture
 def dataset_with_ner_probs():
     dataset = EssayDataset(n_essays=5)
-    with open('data/dataset_with_ner.pkl', 'rb') as saved_file:
-        full_dataset = pickle.load(saved_file)
-    dataset.ner_probs = full_dataset.ner_probs
+    full_dataset = EssayDataset.load('data/dataset_with_ner.pkl')
+    dataset.copy_essays(full_dataset)
     return dataset
 
 @pytest.fixture

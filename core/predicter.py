@@ -1,4 +1,4 @@
-from collections import deque
+from collections import deque, namedtuple
 import time
 from typing import Union, List
 
@@ -26,34 +26,25 @@ class SegmentTokenizer(SentenceTransformer):
 
     def encode(self, segments):
         num_segments = len(segments)
-        seg_lens = torch.LongTensor([len(seg.split()) for seg in segments]).unsqueeze(-1)
         encoded = super().encode(segments, convert_to_numpy=False, convert_to_tensor=True).cpu()
-        encoded = torch.cat((encoded, seg_lens), dim=-1)
         attention_mask = torch.ones_like(encoded)
         encoded = torch.cat((encoded[:self.max_d_elems,:],
-                                    torch.ones(self.max_d_elems - num_segments, self.max_seq_len + 1)))
+                                    torch.ones(self.max_d_elems - num_segments, self.max_seq_len)))
         attention_mask = torch.cat((attention_mask[:self.max_d_elems,:],
-                                    torch.zeros(self.max_d_elems - num_segments, self.max_seq_len + 1)))
-        return encoded, attention_mask[...,0]
+                                    torch.zeros(self.max_d_elems - num_segments, self.max_seq_len)))
+        return encoded, attention_mask[...,0].bool()
 
-    def make_segment_transformer_dataset(self, essay_dataset):
-        print('Making Segment Transformer Dataset...')
-        encoded_segments = []
-        attention_masks = []
-        labels = []
+    def tokenize_dataset(self, essay_dataset):
+        SegmentTokens = namedtuple('SegmentTokens', 'input_ids attention_mask')
+        print('Tokenizing Dataset Segments...')
         for essay in tqdm.tqdm(essay_dataset):
             _essay_ner_features, seg_lens, essay_labels = essay.segments
             text = essay.text_from_segments(seg_lens, join=True)
             encoded, attention_mask = self.encode(text)
-            encoded_segments.append(encoded)
-            attention_masks.append(attention_mask.bool())
-            labels.append(essay_labels)
-        encoded_segments = torch.stack(encoded_segments, dim=0)
-        attention_masks = torch.stack(attention_masks, dim=0)
-        labels = torch.stack(labels, dim=0).unsqueeze(-1)
-        dataset = TensorDataset(encoded_segments, attention_masks, labels)
-        print(f'Dataset created with {len(dataset)} samples')
-        return dataset
+            segment_tokens = SegmentTokens(encoded, attention_mask)
+            essay_dataset.essays[essay.essay_id]['segment_tokens'] = segment_tokens
+        print(f'Dataset Tokenized')
+        return essay_dataset
 
 
 class NERClassifier(Model):
@@ -90,8 +81,46 @@ class NERClassifier(Model):
         y = self.head(y)
         return y
 
+
+    def make_segment_transformer_dataset(self, essay_dataset):
+        print('Making Segment Transformer Dataset...')
+        encoded_segments = []
+        attention_masks = []
+        labels = []
+        for essay in tqdm.tqdm(essay_dataset):
+            _essay_ner_features, seg_lens, essay_labels = essay.segments
+            input_ids, attention_mask = essay.segment_tokens
+            encoded_segments.append(input_ids)
+            attention_masks.append(attention_mask)
+            labels.append(essay_labels)
+        encoded_segments = torch.stack(encoded_segments, dim=0)
+        attention_masks = torch.stack(attention_masks, dim=0)
+        labels = torch.stack(labels, dim=0).unsqueeze(-1)
+        dataset = TensorDataset(encoded_segments, attention_masks, labels)
+        print(f'Dataset created with {len(dataset)} samples')
+        return dataset
+
+
+    def make_ner_feature_dataset(self, essay_dataset):
+        print('Making NER Feature Dataset...')
+        features = []
+        labels = []
+        attention_masks = []
+        for essay in tqdm.tqdm(essay_dataset):
+            ner_features, _seg_lens, essay_labels = essay.segments
+            attention_mask = (ner_features[...,0] != -1)
+            attention_masks.append(attention_mask.bool())
+            features.append(ner_features)
+            labels.append(essay_labels)
+        features = torch.cat(features, dim=0)
+        attention_masks = torch.cat(attention_masks, dim=0)
+        labels = torch.stack(labels, dim=0).unsqueeze(-1)
+        dataset = TensorDataset(features, attention_masks, labels)
+        print(f'Dataset created with {len(dataset)} samples')
+        return dataset
+
+
     def learn(self, train_dataset, val_dataset, args):
-        print(len(train_dataset))
         base_args = args
         args = args.predict
         dataloader = DataLoader(train_dataset,
@@ -320,8 +349,8 @@ class Predicter:
 
     def segment_essay_dataset(self, essay_dataset, print_avg_grade=False):
         print('Segmenting Dataset...')
+        Segments = namedtuple('Segments', 'ner_features segment_lens essay_labels')
         scores = []
-        segments = {}
         for essay in tqdm.tqdm(essay_dataset):
             ner_features, segment_lens = self.segment_ner_probs(essay.ner_probs)
             essay_labels = essay.get_labels_for_segments(segment_lens)
@@ -330,28 +359,9 @@ class Predicter:
                 score = essay.grade(preds)['f_score']
                 scores.append(score)
             essay_labels = torch.LongTensor([seg_label for _, seg_label in essay_labels])
-            segments[essay.essay_id] = (ner_features, segment_lens, essay_labels)
-        essay_dataset.segments = segments
+            essay_dataset[essay.essay_id]['segments'] = Segments(ner_features, segment_lens, essay_labels)
         print('Dataset Segmented')
         if print_avg_grade:
             grade = sum(scores) / len(scores)
             print(f'Average Maximum Possible Grade: {grade}')
         return essay_dataset
-
-    def make_ner_feature_dataset(self, essay_dataset):
-        print('Making NER Feature Dataset...')
-        features = []
-        labels = []
-        attention_masks = []
-        for _essay_id, (ner_features, _seg_lens, essay_labels) in tqdm.tqdm(essay_dataset.segments.items()):
-            attention_mask = (ner_features[...,0] != -1)
-            attention_masks.append(attention_mask.bool())
-            features.append(ner_features)
-            labels.append(essay_labels)
-        features = torch.cat(features, dim=0)
-        attention_masks = torch.cat(attention_masks, dim=0)
-        labels = torch.stack(labels, dim=0).unsqueeze(-1)
-        dataset = TensorDataset(features, attention_masks, labels)
-        print(f'Dataset created with {len(dataset)} samples')
-        return dataset
-
