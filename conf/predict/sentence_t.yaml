@@ -3,20 +3,20 @@ name: SentenceTransformer
 num_ner_segments: 40
 seg_confidence_thresh: 0.05
 
-num_linear_layers: 2
+num_linear_layers: 3
 linear_layer_size: 512
-dropout: 0.2
-intermediate_layer_size: 64
-n_head: 8
-num_attention_layers: 2
+dropout: 0.5
+use_ner_probs: True
+use_seg_lens: True
+
 
 epochs: 100
 batch_size: 128
-learning_rate: 1e-3
+learning_rate: 5e-5
 
-print_interval: 100
+print_interval: 50
 eval_interval: 200
-eval_samples: 640
+eval_samples: 1280
 
 load_ner_features: True
 save_ner_features: False

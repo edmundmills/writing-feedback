@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
-from transformers import BertModel
+from transformers import RobertaModel
 import tqdm
 import numpy as np
 import wandb
@@ -21,7 +21,7 @@ from utils.networks import Model, MLP, PositionalEncoder, Mode
 class SegmentTokenizer(SentenceTransformer):
     def __init__(self, pred_args):
         print('Loading Segment Tokenizer...')
-        super().__init__('sentence-transformers/all-mpnet-base-v2')
+        super().__init__('sentence-transformers/all-distilroberta-v1')
         self.max_d_elems = pred_args.num_ner_segments
         self.max_seq_len = 768
         print('Segment Tokenizer Loaded')
@@ -51,28 +51,53 @@ class SegmentTokenizer(SentenceTransformer):
 class SegmentClassifier(Model):
     def __init__(self, pred_args) -> None:
         super().__init__()
-        self.model = BertModel.from_pretrained("bert-base-uncased").to(self.device)
+        self.model = RobertaModel.from_pretrained("distilroberta-base").to(self.device)
+        self.use_ner_probs = pred_args.use_ner_probs
+        self.use_seg_lens = pred_args.use_seg_lens
         self.seq_len = pred_args.num_ner_segments
         self.num_outputs = len(ner_num_to_token)
-        self.head = MLP(n_inputs=768,
+        mlp_inputs = 768
+        if self.use_ner_probs:
+            mlp_inputs += 15
+        if self.use_seg_lens:
+            mlp_inputs += 1
+        self.head = MLP(n_inputs=mlp_inputs,
                         n_outputs=self.num_outputs,
-                        n_layers=1,
-                        layer_size=None).to(self.device)
+                        n_layers=pred_args.num_linear_layers,
+                        dropout=pred_args.dropout,
+                        layer_size=pred_args.linear_layer_size).to(self.device)
+        self.positional_encoder = PositionalEncoder(features=768,
+                                                    seq_len=self.seq_len,
+                                                    device=self.device)
 
-    def forward(self, input_ids, attention_mask):
-        pass  
+
+    def forward(self, input_ids, attention_mask, ner_probs, seg_lens):
+        input_ids = self.positional_encoder(input_ids)
+        output = self.model(inputs_embeds=input_ids, attention_mask=attention_mask)
+        y = output['last_hidden_state']
+        features = [y]
+        if self.use_ner_probs:
+            features.append(ner_probs)
+        if self.use_seg_lens:
+            features.append(seg_lens)
+        y = torch.cat(features, dim=-1)
+        y = self.head(y)
+        return y
 
     def loss(self, sample, eval=False):
         metrics = {}
-        input_ids, attention_mask, labels = sample
+        input_ids, ner_features, attention_mask, labels = sample
         input_ids = input_ids.to(self.device)
         attention_mask = attention_mask.to(self.device)
         labels = labels.to(self.device)
-        output = self(input_ids, attention_mask)
+        ner_features = ner_features.to(self.device)
+        ner_probs = ner_features[...,:-1]
+        seg_lens = ner_features[...,-1:] / 200
+        output = self(input_ids, attention_mask, ner_probs, seg_lens)
         output = output[attention_mask]
         labels = labels[attention_mask].squeeze()
         loss = F.cross_entropy(output, labels)
-        if self.eval:
+        if eval:
             probs = F.softmax(output, dim=-1).cpu().numpy()
             preds = np.argmax(probs, axis=-1).flatten()
             labels = labels.cpu().numpy().flatten()
@@ -82,12 +107,18 @@ class SegmentClassifier(Model):
                 'Preds': preds,
                 'Labels': labels,
             })
+        else:
+            metrics.update({
+                'Train Loss': loss.item()
+            })
         return loss, metrics
 
     def process_eval_metrics(self, metrics):
         avg_loss = sum(metrics['Eval Loss']) / len(metrics['Eval Loss'])
-        preds = metrics['Preds'].flatten()
-        labels = metrics['Probs'].flatten()
+        preds = np.array([pred for sublist in metrics['Preds']
+                          for pred in sublist])
+        labels = np.array([label for sublist in metrics['Labels']
+                           for label in sublist])
         correct = np.equal(preds, labels)
         avg_acc = sum(correct) / len(correct)            
         eval_metrics = {'Eval Loss': avg_loss,
@@ -103,17 +134,20 @@ class SegmentClassifier(Model):
         print('Making Segment Transformer Dataset...')
         encoded_segments = []
         attention_masks = []
+        ner_features = []
         labels = []
         for essay in tqdm.tqdm(essay_dataset):
-            _essay_ner_features, seg_lens, essay_labels = essay.segments
+            essay_ner_features, seg_lens, essay_labels = essay.segments
             input_ids, attention_mask = essay.segment_tokens
             encoded_segments.append(input_ids)
             attention_masks.append(attention_mask)
+            ner_features.append(essay_ner_features)
             labels.append(essay_labels)
+        ner_features = torch.cat(ner_features, dim=0)
         encoded_segments = torch.stack(encoded_segments, dim=0)
         attention_masks = torch.stack(attention_masks, dim=0)
         labels = torch.stack(labels, dim=0).unsqueeze(-1)
-        dataset = TensorDataset(encoded_segments, attention_masks, labels)
+        dataset = TensorDataset(encoded_segments, ner_features, attention_masks, labels)
         print(f'Dataset created with {len(dataset)} samples')
         return dataset
 
