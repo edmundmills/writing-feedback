@@ -12,10 +12,10 @@ import tqdm
 import numpy as np
 import wandb
 
-from core.dataset import SegmentTokens, Segments
+from core.dataset import SegmentTokens, Segments, EssayDataset
 from core.essay import Prediction
 from utils.constants import ner_num_to_token, de_num_to_type
-from utils.networks import Model, MLP, PositionalEncoder
+from utils.networks import Model, MLP, PositionalEncoder, Mode
 
 
 class SegmentTokenizer(SentenceTransformer):
@@ -85,6 +85,41 @@ class SegmentClassifier(Model):
         class_logits = y[...,:8]
         seg_logits = y[...,8:]
         return class_logits, seg_logits
+
+    def predict(self, essay):
+        ner_features, seg_lens, essay_labels = essay.segments
+        input_ids, attention_mask = essay.segment_tokens
+        ner_probs = ner_features[...,:-1]
+        seg_lens = ner_features[...,-1:] / 200
+        with Mode(self, 'eval'):
+            with torch.no_grad():
+                print(input_ids.shape, attention_mask.shape, ner_probs.shape, seg_lens.shape)
+                class_logits, seg_logits = self(input_ids.to(self.device),
+                                                attention_mask.to(self.device),
+                                                ner_probs.to(self.device),
+                                                seg_lens.to(self.device))
+                class_probs = F.softmax(class_logits, dim=-1).cpu()
+                class_preds = torch.argmax(class_probs, dim=-1)
+                seg_probs = F.softmax(seg_logits, dim=-1).cpu()
+                seg_preds = torch.argmax(seg_probs, dim=-1)
+
+        preds = []
+        cur_start = 0
+        word_idx = 0
+        for idx, (seg_len, class_pred, class_prob, seg_pred) in enumerate(
+                zip(seg_lens, class_preds, class_probs, seg_preds)):
+            word_idx += seg_len
+            if idx == 0:
+                cur_class = class_pred.item()
+                continue
+            if seg_pred.item() or class_pred.item() != cur_class:
+                preds.append(Prediction(cur_start, word_idx - 1, cur_class, essay.essay_id))
+                cur_start = word_idx
+                cur_class = class_pred.item()
+            preds.append(Prediction(cur_start, word_idx - 1, cur_class, essay.essay_id))
+        grade = essay.grade[preds]
+        return preds, grade            
+
 
     def loss(self, sample, eval=False):
         metrics = {}
@@ -161,6 +196,7 @@ class SegmentClassifier(Model):
         eval_metrics.update({'Seg Confusion Matrix': seg_confusion_matrix})
         eval_metrics.update({'Class Confusion Matrix': class_confusion_matrix})
         return eval_metrics
+
 
     def make_segment_transformer_dataset(self, essay_dataset):
         print('Making Segment Transformer Dataset...')
