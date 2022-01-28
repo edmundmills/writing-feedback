@@ -20,5 +20,5 @@ eval_samples: 640
 
 load_ner_features: True
 save_ner_features: False
-load_seg_tokens: False
-save_seg_tokens: True
+load_seg_tokens: True
+save_seg_tokens: False

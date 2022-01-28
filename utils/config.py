@@ -37,14 +37,16 @@ class WandBRun:
             self.project_name += '-debug'
         tensorboard = OmegaConf.select(self.args, "sync_tensorboard",
                                        default=False)
-        if self.args.wandb:
-            wandb.init(
-                entity='writing-feedback',
-                project=self.project_name,
-                notes="",
-                sync_tensorboard=tensorboard,
-                config=flatten_args(self.args),
-            )
+        wandb_args = dict(
+            entity='writing-feedback',
+            project=self.project_name,
+            notes="",
+            sync_tensorboard=tensorboard,
+            config=flatten_args(self.args)
+        )
+        if not self.args.wandb:
+            wandb_args.update({'mode': 'disabled'})
+        wandb.init(**wandb_args)
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         if self.args.wandb:

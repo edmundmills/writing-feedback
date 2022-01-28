@@ -1,5 +1,8 @@
+from collections import defaultdict, deque
 import math
 from pathlib import Path
+import time
+from typing import Any, Dict, List, Tuple
 
 import torch
 import torch.nn as nn
@@ -24,6 +27,72 @@ class Model(nn.Module):
         print(f'Loading model from {model_file}')
         self.load_state_dict(torch.load(model_file))
         print('Model Loaded')
+
+    def make_dataloader(self, dataset, args):
+        return torch.utils.data.DataLoader(dataset,
+                                           batch_size=args.batch_size,
+                                           num_workers=4,
+                                           shuffle=True)
+
+    def make_optimizer(self, args):
+        return torch.optim.AdamW(self.parameters(), args.learning_rate)
+
+    def loss(self, sample, eval=False) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        raise NotImplementedError
+
+    def update_params(self, optimizer, loss):
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    def process_eval_metrics(self, metrics:Dict[str, List]):
+        raise NotImplementedError
+
+    def learn(self, train_dataset, val_dataset, args):
+        dataloader = self.make_dataloader(train_dataset, args)
+        optimizer = self.make_optimizer(args)
+        step = 0
+        running_loss = deque(maxlen=args.print_interval)
+        timestamps = deque(maxlen=args.print_interval)
+
+        with Mode(self, 'train'):
+            for epoch in range(1, args.epochs + 1):
+                print(f'Starting epoch {epoch}')
+                for sample in dataloader:
+                    step += 1
+                    loss, metrics = self.loss(sample)
+                    self.update_params(optimizer, loss)
+                    loss = loss.item()
+                    running_loss.append(loss)
+                    timestamps.append(time.time())
+
+                    if step % args.print_interval == 0:
+                        print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
+                            f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
+
+                    if step % args.eval_interval == 0:
+                        eval_metrics = self.evaluate(val_dataset, args, n_samples=args.eval_samples)
+                        metrics.update(eval_metrics)
+                        print(f'Step {step}:\t{eval_metrics}')
+
+                    wandb.log(metrics, step=step)
+        print('Training Complete')
+
+    def evaluate(self, dataset, args, n_samples=None):
+        n_samples = n_samples or len(dataset)
+        dataloader = self.make_dataloader(dataset, args)
+        metrics = defaultdict(list)
+        with Mode(self, 'eval'):
+            for idx, sample in enumerate(dataloader, start=1):
+                with torch.no_grad():
+                    loss, sample_metrics = self.loss(sample, eval=True)
+                for k, v in sample_metrics.items():
+                    metrics[k].append(v)
+                if idx * args.batch_size >= n_samples:
+                    break
+        metrics = self.process_eval_metrics(metrics)
+        return metrics
+
 
 class Mode:
     def __init__(self, module, mode:str) -> None:

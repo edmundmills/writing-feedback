@@ -11,6 +11,7 @@ import tqdm
 import numpy as np
 import wandb
 
+from core.dataset import SegmentTokens, Segments
 from core.essay import Prediction
 from utils.constants import ner_num_to_token
 from utils.networks import Model, MLP, PositionalEncoder, Mode
@@ -35,7 +36,6 @@ class SegmentTokenizer(SentenceTransformer):
         return encoded, attention_mask[...,0].bool()
 
     def tokenize_dataset(self, essay_dataset):
-        SegmentTokens = namedtuple('SegmentTokens', 'input_ids attention_mask')
         print('Tokenizing Dataset Segments...')
         for essay in tqdm.tqdm(essay_dataset):
             _essay_ner_features, seg_lens, essay_labels = essay.segments
@@ -81,26 +81,6 @@ class NERClassifier(Model):
         y = self.head(y)
         return y
 
-
-    def make_segment_transformer_dataset(self, essay_dataset):
-        print('Making Segment Transformer Dataset...')
-        encoded_segments = []
-        attention_masks = []
-        labels = []
-        for essay in tqdm.tqdm(essay_dataset):
-            _essay_ner_features, seg_lens, essay_labels = essay.segments
-            input_ids, attention_mask = essay.segment_tokens
-            encoded_segments.append(input_ids)
-            attention_masks.append(attention_mask)
-            labels.append(essay_labels)
-        encoded_segments = torch.stack(encoded_segments, dim=0)
-        attention_masks = torch.stack(attention_masks, dim=0)
-        labels = torch.stack(labels, dim=0).unsqueeze(-1)
-        dataset = TensorDataset(encoded_segments, attention_masks, labels)
-        print(f'Dataset created with {len(dataset)} samples')
-        return dataset
-
-
     def make_ner_feature_dataset(self, essay_dataset):
         print('Making NER Feature Dataset...')
         features = []
@@ -119,100 +99,44 @@ class NERClassifier(Model):
         print(f'Dataset created with {len(dataset)} samples')
         return dataset
 
-
-    def learn(self, train_dataset, val_dataset, args):
-        base_args = args
-        args = args.predict
-        dataloader = DataLoader(train_dataset,
-                                num_workers=4,
-                                batch_size=args.batch_size,
-                                )
-        step = 0
-        optimizer = torch.optim.AdamW(self.parameters(), args.learning_rate)
-        running_loss = deque(maxlen=args.print_interval)
-        timestamps = deque(maxlen=args.print_interval)
-
-        with Mode(self, 'train'):
-            for epoch in range(1, args.epochs + 1):
-                print(f'Starting epoch {epoch}')
-                for features, attention_mask, labels in dataloader:
-                    step += 1
-                    features = features.to(self.device)
-                    attention_mask = attention_mask.to(self.device)
-                    labels = labels.to(self.device)
-                    output = self(features)
-                    output = output[attention_mask]
-                    labels = labels[attention_mask].squeeze()
-                    loss = F.cross_entropy(output, labels)
-
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-
-                    loss = loss.item()
-                    running_loss.append(loss)
-                    timestamps.append(time.time())
-                    metrics = {
-                        'Train Loss': loss,
-                    }
-
-                    if step % args.print_interval == 0:
-                        print(f'Step {step}:\t Loss: {sum(running_loss)/len(running_loss):.3f}'
-                            f'\t Rate: {len(timestamps)/(timestamps[-1]-timestamps[0]):.2f} It/s')
-
-                    if step % args.eval_interval == 0:
-                        eval_metrics = self.evaluate(val_dataset, base_args, n_samples=args.eval_samples)
-                        metrics.update(eval_metrics)
-                        print(f'Step {step}:\t{eval_metrics}')
-
-                    if base_args.wandb:
-                        wandb.log(metrics, step=step)
-        print('Training Complete')
-
-
-
-    def evaluate(self, dataset, args, n_samples=None):
-        n_samples = n_samples or len(dataset)
-        base_args = args
-        args = args.predict
+    def loss(self, sample, eval=False):
         metrics = {}
-        dataloader = DataLoader(dataset,
-                        num_workers=4,
-                        batch_size=args.batch_size)
-        losses = []
-        running_preds = []
-        running_labels = []
-        with Mode(self, 'eval'):
-            for idx, (features, msk, labels) in enumerate(dataloader, start=1):
-                features = features.to(self.device)
-                labels = labels.to(self.device)
-                msk = msk.to(self.device)
-                with torch.no_grad():
-                    output = self(features)
-                    output = output[msk]
-                    labels = labels[msk].squeeze()
-                    loss = F.cross_entropy(output, labels)
-                losses.append(loss.item())
-                probs = F.softmax(output, dim=-1).cpu().numpy()
-                preds = np.argmax(probs, axis=-1).flatten()
-                running_preds.extend(preds)
-                running_labels.extend(labels.cpu().numpy().flatten())
-                if idx * args.batch_size >= n_samples:
-                    break
-        avg_loss = sum(losses) / len(losses)
-        correct = np.equal(running_preds, running_labels)
-        avg_acc = sum(correct) / len(running_preds)            
-        metrics = {'Eval Loss': avg_loss,
-                   'Eval Accuracy': avg_acc}
-                
-        if base_args.wandb:
-            seg_confusion_matrix = wandb.plot.confusion_matrix(
-                y_true=running_labels,
-                preds=running_preds,
-                class_names=ner_num_to_token)
-            metrics.update({'Confusion Matrix': seg_confusion_matrix})
-        return metrics
+        ner_features, attention_mask, labels = sample
+        ner_features = ner_features.to(self.device)
+        attention_mask = attention_mask.to(self.device)
+        labels = labels.to(self.device)
+        output = self(ner_features)
+        output = output[attention_mask]
+        labels = labels[attention_mask].squeeze()
+        loss = F.cross_entropy(output, labels)
+        if eval:
+            probs = F.softmax(output, dim=-1).cpu().numpy()
+            preds = np.argmax(probs, axis=-1).flatten()
+            labels = labels.cpu().numpy().flatten()
+            metrics.update({
+                'Eval Loss': loss.item(),
+                'Probs': probs,
+                'Preds': preds,
+                'Labels': labels,
+            })
+        return loss, metrics
 
+    def process_eval_metrics(self, metrics):
+        avg_loss = sum(metrics['Eval Loss']) / len(metrics['Eval Loss'])
+        preds = np.array([pred for sublist in metrics['Preds']
+                          for pred in sublist])
+        labels = np.array([label for sublist in metrics['Labels']
+                           for label in sublist])
+        correct = np.equal(preds, labels)
+        avg_acc = sum(correct) / len(correct)            
+        eval_metrics = {'Eval Loss': avg_loss,
+                        'Eval Accuracy': avg_acc}
+        seg_confusion_matrix = wandb.plot.confusion_matrix(
+            y_true=labels,
+            preds=preds,
+            class_names=ner_num_to_token)
+        eval_metrics.update({'Confusion Matrix': seg_confusion_matrix})
+        return eval_metrics
 
 
 class Predicter:
@@ -349,7 +273,6 @@ class Predicter:
 
     def segment_essay_dataset(self, essay_dataset, print_avg_grade=False):
         print('Segmenting Dataset...')
-        Segments = namedtuple('Segments', 'ner_features segment_lens essay_labels')
         scores = []
         for essay in tqdm.tqdm(essay_dataset):
             ner_features, segment_lens = self.segment_ner_probs(essay.ner_probs)

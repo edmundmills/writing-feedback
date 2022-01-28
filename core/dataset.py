@@ -1,3 +1,4 @@
+from collections import namedtuple
 from csv import DictReader
 import random
 from typing import Any, List, Tuple
@@ -8,7 +9,10 @@ import tqdm
 
 from utils.constants import data_path, essay_dir, label_file
 from core.essay import Essay
- 
+
+SegmentTokens = namedtuple('SegmentTokens', 'input_ids attention_mask')
+Segments = namedtuple('Segments', 'ner_features segment_lens essay_labels')
+
 
 class EssayDataset:
     def __init__(self, n_essays=None, essay_ids=None, full_dataset=None) -> None:

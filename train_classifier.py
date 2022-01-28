@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
             run_name = wandb.run.name if args.wandb else 'test'
             first_run_name = first_run_name or run_name
-            classifier.learn(train, val, args)
+            classifier.learn(train, val, args.predict)
             if args.ner.save_model:
                 model_name = f'{first_run_name}_fold_{fold}_{wandb.run.name}' if args.wandb else 'test'
                 classifier.save(model_name)

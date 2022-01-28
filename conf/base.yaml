@@ -3,7 +3,7 @@ defaults:
  - ner: ner
  - rl: ppo
  - env: assignment
- - predict: attention
+ - predict: sentence_t
 
 
 name: base
