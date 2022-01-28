@@ -38,6 +38,7 @@ if __name__ == '__main__':
             dataset = tokenizer.tokenize_dataset(ner_dataset)
             if args.predict.save_seg_tokens and not args.debug:
                 dataset.save(args.tokenized_dataset_path)
+            del tokenizer
         else:
             ner_dataset = EssayDataset.load(args.tokenized_dataset_path)
 

@@ -14,8 +14,8 @@ import wandb
 
 from core.dataset import SegmentTokens, Segments
 from core.essay import Prediction
-from utils.constants import ner_num_to_token
-from utils.networks import Model, MLP, PositionalEncoder, Mode
+from utils.constants import ner_num_to_token, de_num_to_type
+from utils.networks import Model, MLP, PositionalEncoder
 
 
 class SegmentTokenizer(SentenceTransformer):
@@ -55,7 +55,7 @@ class SegmentClassifier(Model):
         self.use_ner_probs = pred_args.use_ner_probs
         self.use_seg_lens = pred_args.use_seg_lens
         self.seq_len = pred_args.num_ner_segments
-        self.num_outputs = len(ner_num_to_token)
+        self.num_outputs = 10
         mlp_inputs = 768
         if self.use_ner_probs:
             mlp_inputs += 15
@@ -82,7 +82,9 @@ class SegmentClassifier(Model):
             features.append(seg_lens)
         y = torch.cat(features, dim=-1)
         y = self.head(y)
-        return y
+        class_logits = y[...,:8]
+        seg_logits = y[...,8:]
+        return class_logits, seg_logits
 
     def loss(self, sample, eval=False):
         metrics = {}
@@ -93,41 +95,71 @@ class SegmentClassifier(Model):
         ner_features = ner_features.to(self.device)
         ner_probs = ner_features[...,:-1]
         seg_lens = ner_features[...,-1:] / 200
-        output = self(input_ids, attention_mask, ner_probs, seg_lens)
-        output = output[attention_mask]
+        class_logits, seg_logits = self(input_ids, attention_mask, ner_probs, seg_lens)
+        class_logits = class_logits[attention_mask]
+        seg_logits = seg_logits[attention_mask]
         labels = labels[attention_mask].squeeze()
-        loss = F.cross_entropy(output, labels)
+        cont_label = labels > 7
+        class_labels = labels - (cont_label * 7)
+        seg_labels = ((labels > 0) * (labels <= 7)).long()
+        class_loss = F.cross_entropy(class_logits, class_labels)
+        seg_loss = F.cross_entropy(seg_logits, seg_labels)
+        loss = class_loss + 2*seg_loss
         if eval:
-            probs = F.softmax(output, dim=-1).cpu().numpy()
-            preds = np.argmax(probs, axis=-1).flatten()
-            labels = labels.cpu().numpy().flatten()
+            class_probs = F.softmax(class_logits, dim=-1).cpu().numpy()
+            class_preds = np.argmax(class_probs, axis=-1).flatten()
+            class_labels = class_labels.cpu().numpy().flatten()
+            seg_probs = F.softmax(seg_logits, dim=-1).cpu().numpy()
+            seg_preds = np.argmax(seg_probs, axis=-1).flatten()
+            seg_labels = seg_labels.cpu().numpy().flatten()
             metrics.update({
-                'Eval Loss': loss.item(),
-                'Probs': probs,
-                'Preds': preds,
-                'Labels': labels,
+                'Eval/Loss': loss.item(),
+                'Eval/Class Loss': class_loss.item(),
+                'Eval/Seg Loss': seg_loss.item(),
+                'Class Probs': class_probs,
+                'Class Preds': class_preds,
+                'Class Labels': class_labels,
+                'Seg Probs': seg_probs,
+                'Seg Preds': seg_preds,
+                'Seg Labels': seg_labels,
             })
         else:
             metrics.update({
-                'Train Loss': loss.item()
+                'Train/Loss': loss.item(),
+                'Train/Class Loss': class_loss.item(),
+                'Train/Seg Loss': seg_loss.item()
             })
         return loss, metrics
 
     def process_eval_metrics(self, metrics):
-        avg_loss = sum(metrics['Eval Loss']) / len(metrics['Eval Loss'])
-        preds = np.array([pred for sublist in metrics['Preds']
+        avg_loss = sum(metrics['Eval/Loss']) / len(metrics['Eval/Loss'])
+        # class
+        class_preds = np.array([pred for sublist in metrics['Class Preds']
                           for pred in sublist])
-        labels = np.array([label for sublist in metrics['Labels']
+        class_labels = np.array([label for sublist in metrics['Class Labels']
                            for label in sublist])
-        correct = np.equal(preds, labels)
-        avg_acc = sum(correct) / len(correct)            
-        eval_metrics = {'Eval Loss': avg_loss,
-                        'Eval Accuracy': avg_acc}
+        correct = np.equal(class_preds, class_labels)
+        class_avg_acc = sum(correct) / len(correct)
+        # seg            
+        seg_preds = np.array([pred for sublist in metrics['Seg Preds']
+                          for pred in sublist])
+        seg_labels = np.array([label for sublist in metrics['Seg Labels']
+                           for label in sublist])
+        correct = np.equal(seg_preds, seg_labels)
+        seg_avg_acc = sum(correct) / len(correct)            
+        eval_metrics = {'Eval/Loss': avg_loss,
+                        'Eval/Class Accuracy': class_avg_acc,
+                        'Eval/Seg Accuracy': seg_avg_acc}
         seg_confusion_matrix = wandb.plot.confusion_matrix(
-            y_true=labels,
-            preds=preds,
-            class_names=ner_num_to_token)
-        eval_metrics.update({'Confusion Matrix': seg_confusion_matrix})
+            y_true=seg_labels,
+            preds=seg_preds,
+            class_names=['Continue', 'Start'])
+        class_confusion_matrix = wandb.plot.confusion_matrix(
+            y_true=class_labels,
+            preds=class_preds,
+            class_names=de_num_to_type)
+        eval_metrics.update({'Seg Confusion Matrix': seg_confusion_matrix})
+        eval_metrics.update({'Class Confusion Matrix': class_confusion_matrix})
         return eval_metrics
 
     def make_segment_transformer_dataset(self, essay_dataset):
