@@ -47,6 +47,11 @@ def ner_args():
     args = OmegaConf.load('conf/ner/ner.yaml')
     return args
 
+@pytest.fixture
+def seg_t_args():
+    args = OmegaConf.load('conf/seg_t/fine_tune.yaml')
+    return args
+
 # DATASET
 
 @pytest.fixture
@@ -64,6 +69,14 @@ def pstrings():
 @pytest.fixture
 def prediction():
     return Prediction(0, 10, 1, 1)
+
+@pytest.fixture
+def dataset_with_segments():
+    dataset = EssayDataset(n_essays=5)
+    full_dataset = EssayDataset.load('data/segmented_dataset.pkl')
+    dataset.copy_essays(full_dataset)
+    return dataset
+
 
 # ENCODERS AND TOKENIZERS
 

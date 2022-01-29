@@ -4,6 +4,7 @@ defaults:
  - rl: ppo
  - env: assignment
  - predict: sentence_t
+ - seg_t: fine_tune
 
 
 name: base

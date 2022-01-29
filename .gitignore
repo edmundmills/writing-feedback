@@ -4,6 +4,7 @@ models/
 !core/models/
 !tests/core/models/
 log/
+sentence_transformers/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

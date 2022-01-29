@@ -163,4 +163,6 @@ class EssayDataset:
     
     def copy_essays(self, other):
         for essay_id in self.essay_ids:
-            self.essays[essay_id] = other.essays[essay_id]
+            other_essay = other.essays.get(essay_id, None)
+            if other_essay is not None:
+                self.essays[essay_id] = other_essay

@@ -51,7 +51,7 @@ class SegmentTokenizer(SentenceTransformer):
 class SegmentClassifier(Model):
     def __init__(self, pred_args) -> None:
         super().__init__()
-        self.model = RobertaModel.from_pretrained("distilroberta-base").to(self.device)
+        self.model = RobertaModel.from_pretrained("roberta-base").to(self.device)
         self.use_ner_probs = pred_args.use_ner_probs
         self.use_seg_lens = pred_args.use_seg_lens
         self.seq_len = pred_args.num_ner_segments
