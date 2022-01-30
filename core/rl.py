@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import gym
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
@@ -40,6 +42,61 @@ class SegmentAttention(BaseFeaturesExtractor):
         output = self.linear(output)
         output = output.flatten(start_dim=1)
         return output
+
+
+class TransformerPolicyNet(nn.Module):
+    def __init__(self,
+                 feature_dim,
+                 last_layer_dim_pi,
+                 last_layer_dim_vf,
+                 d_model=16,
+                 nhead=8,
+                 n_attention_layers=6,
+                 n_outputs=2) -> None:
+        super().__init__()
+        self.latent_dim_pi = last_layer_dim_pi
+        self.latent_dim_vf = last_layer_dim_vf
+
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model,
+                                                   nhead=nhead,
+                                                   batch_first=True)
+        self.policy_net = nn.Sequential(
+            nn.TransformerEncoder(encoder_layer, n_attention_layers),
+            nn.Linear(d_model, n_outputs)
+        )
+
+        self.value_net = nn.Sequential(
+            nn.TransformerEncoder(encoder_layer, n_attention_layers),
+            nn.Linear(d_model, n_outputs)
+        )
+
+    def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        :return: (torch.Tensor, torch.Tensor) latent_policy, latent_value of the specified network.
+            If all layers are shared, then ``latent_policy == latent_value``
+        """
+        features = features.reshape(-1, 40, 17)
+        msk = features[...,0]
+        features = features[...,1:]
+        output_p = self.policy_net(features)[msk]
+        output_v = self.value_net(features)[msk]
+        return output_p, output_v
+
+    def forward_actor(self, features: torch.Tensor) -> torch.Tensor:
+        features = features.reshape(-1, 40, 17)
+        msk = features[...,0]
+        features = features[...,1:]
+        return self.policy_net(features)[msk]
+
+    def forward_critic(self, features: torch.Tensor) -> torch.Tensor:
+        features = features.reshape(-1, 40, 17)
+        msk = features[...,0]
+        features = features[...,1:]
+        return self.value_net(features)[msk]
+
+
+
+
 
 
 def make_agent(base_args, env):

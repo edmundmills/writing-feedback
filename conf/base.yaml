@@ -2,7 +2,7 @@ defaults:
  - _self_
  - ner: ner
  - rl: ppo
- - env: assignment
+ - env: join
  - predict: sentence_t
  - seg_t: fine_tune
 
@@ -13,7 +13,7 @@ dataset_path: 'data/full_dataset.pkl'
 ner_dataset_path: 'data/dataset_with_ner.pkl'
 baseline_ner_dataset_path: 'data/baseline_ner_dataset.pkl'
 segmented_dataset_path: 'data/segmented_dataset.pkl'
-tokenized_dataset_path: 'data/tokenized_dataset.pkl'
+tokenized_dataset_path: 'data/seg_t_tokenized_dataset.pkl'
 ner_model_name: lemon-dream-5
 
 debug: False

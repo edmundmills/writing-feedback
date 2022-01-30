@@ -143,8 +143,7 @@ def dataset_with_ner_probs():
 @pytest.fixture
 def assign_args():
     args = get_config('base', args=['env=assignment'])
-    env_args = args.env
-    return env_args
+    return args
 
 @pytest.fixture
 def assign_env():
@@ -152,8 +151,23 @@ def assign_env():
     dataset = EssayDataset(n_essays=5)
     with open('data/dataset_with_ner.pkl', 'rb') as saved_file:
         full_dataset = pickle.load(saved_file)
-    dataset.ner_probs = full_dataset.ner_probs
-    env = AssignmentEnv(dataset, args.env)
+    dataset.copy_essays(full_dataset)
+    env = AssignmentEnv(dataset, args)
+    return env
+
+@pytest.fixture
+def join_args():
+    args = get_config('base', args=['env=join'])
+    return args
+
+@pytest.fixture
+def join_env():
+    args = get_config('base', args=['env=join'])
+    dataset = EssayDataset(n_essays=5)
+    with open('data/dataset_with_ner.pkl', 'rb') as saved_file:
+        full_dataset = pickle.load(saved_file)
+    dataset.copy_essays(full_dataset)
+    env = AssignmentEnv(dataset, args)
     return env
 
 

@@ -3,12 +3,12 @@ name: Attention
 num_ner_segments: 40
 seg_confidence_thresh: 0.07
 
-num_linear_layers: 3
+num_linear_layers: 1
 linear_layer_size: 512
 dropout: 0.1
-intermediate_layer_size: 64
+intermediate_layer_size: 16
 n_head: 8
-num_attention_layers: 2
+num_attention_layers: 6
 
 epochs: 100
 batch_size: 128

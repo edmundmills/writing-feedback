@@ -226,11 +226,11 @@ class NERClassifier(Model):
         d_model = len(ner_num_to_token) + 1
         self.num_outputs = len(ner_num_to_token)
         self.seq_len = pred_args.num_ner_segments
-        self.linear = MLP(n_inputs=d_model,
-                            n_outputs=pred_args.intermediate_layer_size,
-                            n_layers=pred_args.num_linear_layers,
-                            layer_size=pred_args.linear_layer_size,
-                            dropout=pred_args.dropout).to(self.device)
+        # self.linear = MLP(n_inputs=d_model,
+        #                     n_outputs=pred_args.intermediate_layer_size,
+        #                     n_layers=pred_args.num_linear_layers,
+        #                     layer_size=pred_args.linear_layer_size,
+        #                     dropout=pred_args.dropout).to(self.device)
         self.positional_encoder = PositionalEncoder(features=pred_args.intermediate_layer_size,
                                                     seq_len=self.seq_len,
                                                     device=self.device)
@@ -245,8 +245,8 @@ class NERClassifier(Model):
                           layer_size=None).to(self.device)
     
     def forward(self, features):
-        y = self.linear(features)
-        y = self.positional_encoder(y)
+        # y = self.linear(features)
+        y = self.positional_encoder(features)
         y = self.attention(y)
         y = self.head(y)
         return y

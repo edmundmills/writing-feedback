@@ -1,4 +1,5 @@
 import os
+from turtle import position
 
 import numpy as np
 import pickle
@@ -24,20 +25,21 @@ if __name__ == '__main__':
     
     dataset = EssayDataset.load(args.ner_dataset_path)
 
-    env = SegmentationEnv.make(1, dataset, args.env)
+    env = SegmentationEnv.make(1, dataset, args)
 
     state = env.reset()
     print(env.essay_id)
     done = False
     while not done:
-        plot_ner_output(state)
+        print('Position: ', state['position'])
+        # plot_ner_output(state['ner_tokens'])
         action = int(input('Action: '))
-        print(env.actions[action])
+        # print(env.actions[action])
         state, reward, done, info = env.step(action)
         print(f'Reward: {reward:.2f}')
-    grade = env.current_state_value()
+    grade = info['Score']
     print(f'f-Score: {grade}')
-    for pred in env.essay.correct_predictions:
-        print(pred.start, pred.stop, pred.label)
-    for pred in env.predictions:
-        print(pred.start, pred.stop, pred.label)
+    # for pred in env.essay.correct_predictions:
+    #     print(pred.start, pred.stop, pred.label)
+    # for pred in env.predictions:
+    #     print(pred.start, pred.stop, pred.label)
