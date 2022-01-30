@@ -15,9 +15,9 @@ from utils.render import plot_ner_output, EssayRenderer
 
 if __name__ == '__main__':
 
-    render = False
+    render = True
     print_segments = False
-    score = True
+    score = False
     plot_segments = False
     num_essays = 10
     essay_id = None
