@@ -38,3 +38,5 @@ ner_num_to_token = [
 
 ner_token_to_num = {name: idx for idx, name
                     in enumerate(ner_num_to_token)}
+
+de_len_norm_factor = 128

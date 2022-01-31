@@ -1,0 +1,2 @@
+num_ner_segments: 40
+seg_confidence_thresh: 0.07

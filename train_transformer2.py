@@ -5,13 +5,15 @@ import random
 import torch
 import transformers
 import wandb
+from core.segmenter import Segmenter
 
 random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
-from core.predicter import Predicter, SegmentTokenizer, NERClassifier, SegmentClassifier
+from core.segmenter import Segmenter
+from core.transformer2 import SegmentTokenizer, SegmentClassifier
 from core.dataset import EssayDataset
 from utils.config import parse_args, get_config, WandBRun
 
@@ -25,8 +27,8 @@ if __name__ == '__main__':
 
     if not args.predict.load_ner_features:
         ner_dataset = EssayDataset.load(args.baseline_ner_dataset_path)
-        predicter = Predicter(args.predict)
-        ner_dataset = predicter.segment_essay_dataset(ner_dataset, print_avg_grade=True)
+        segmenter = Segmenter(args.predict)
+        ner_dataset = segmenter.segment_essay_dataset(ner_dataset, print_avg_grade=True)
         if args.predict.save_ner_features and not args.debug:
             ner_dataset.save(args.segmented_dataset_path)
     else:
@@ -57,17 +59,12 @@ if __name__ == '__main__':
     first_run_name = None
 
     for fold in dataset.folds:
-        with WandBRun(args, project_name='classifier'):
+        with WandBRun(args, project_name='transformer2'):
             print(f'Starting training on fold {fold}')
             train, val = dataset.get_fold(fold)
-            if args.predict.name == 'SentenceTransformer':
-                classifier = SegmentClassifier(args.predict)
-                train = classifier.make_segment_transformer_dataset(train)
-                val = classifier.make_segment_transformer_dataset(val)
-            elif args.predict.name == 'Attention':
-                classifier = NERClassifier(args.predict)
-                train = classifier.make_ner_feature_dataset(train)
-                val = classifier.make_ner_feature_dataset(val)
+            classifier = SegmentClassifier(args.predict)
+            train = classifier.make_segment_transformer_dataset(train)
+            val = classifier.make_segment_transformer_dataset(val)
             print(f'Training dataset size: {len(train)}')
             print(f'Validation dataset size: {len(val)}')
 

@@ -8,10 +8,9 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
 from core.dataset import EssayDataset
-from core.predicter import Predicter
 from utils.config import parse_args, get_config
 from utils.render import plot_ner_output
-
+from utils.postprocessing import assign_by_heuristics
 
 if __name__ == '__main__':
     args = parse_args()
@@ -19,12 +18,11 @@ if __name__ == '__main__':
 
     dataset = EssayDataset.load(args.ner_dataset_path)
 
-    predicter = Predicter()
 
     scores = []
     count = 100
     for essay in dataset:
-        _preds, metrics = predicter.by_heuristics(essay)
+        _preds, metrics = assign_by_heuristics(essay)
         score = metrics['f_score']
         scores.append(score)
         if count and len(scores) > count: break

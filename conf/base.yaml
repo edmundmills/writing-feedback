@@ -3,8 +3,9 @@ defaults:
  - ner: ner
  - rl: ppo
  - env: join
- - predict: sentence_t
+ - predict: predicter
  - seg_t: fine_tune
+ - seg: segmenter
 
 
 name: base

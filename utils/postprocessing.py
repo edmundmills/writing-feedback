@@ -1,4 +1,7 @@
+import numpy as np
 import pandas as pd
+
+from core.essay import Prediction
 
 def jn(pst, start, end):
     return " ".join([str(x) for x in pst[start:end]])
@@ -40,3 +43,56 @@ def link_evidence(oof):
         roof = roof.merge(neoof, how='outer')
         return roof
 
+proba_thresh = {
+    "Lead": 0.7,
+    "Position": 0.55,
+    "Evidence": 0.65,
+    "Claim": 0.55,
+    "Concluding Statement": 0.7,
+    "Counterclaim": 0.5,
+    "Rebuttal": 0.55,
+    'None': 1,
+}
+min_thresh = {
+    "Lead": 9,
+    "Position": 5,
+    "Evidence": 14,
+    "Claim": 3,
+    "Concluding Statement": 11,
+    "Counterclaim": 6,
+    "Rebuttal": 4,
+    'None': -1
+}
+
+def assign_by_heuristics(self, essay, thresholds=True): 
+    probs = essay.ner_probs.numpy()
+    preds = np.argmax(probs, axis=-1).squeeze()
+    pred_probs = np.max(probs, axis=-1).squeeze()
+    predictions = []
+    for idx, pred in enumerate(preds):
+        start_pred = pred > 0 and pred <= 7
+        pred_class = pred - 7 if pred > 7 else pred
+        if idx == 0:
+            cur_pred_start = 0
+            cur_pred_class = pred_class
+            continue
+        if pred_class == cur_pred_class and not start_pred:
+            continue
+        pred = Prediction(cur_pred_start, idx - 1, cur_pred_class, essay.essay_id)
+        pred_weights = pred_probs[pred.start:(pred.stop + 1)]
+        class_confidence = sum(pred_weights) / len(pred_weights)
+        if (class_confidence > proba_thresh[pred.argument_name] \
+                and len(pred) > min_thresh[pred.argument_name]) \
+                    or not thresholds:
+            predictions.append(pred)
+        cur_pred_class = pred_class
+        cur_pred_start = idx
+    pred = Prediction(cur_pred_start, idx, cur_pred_class, essay.essay_id)
+    pred_weights = pred_probs[pred.start:(pred.stop + 1)]
+    class_confidence = sum(pred_weights) / len(pred_weights)
+    if (class_confidence > proba_thresh[pred.argument_name] \
+            and len(pred) > min_thresh[pred.argument_name]) \
+                or not thresholds:
+        predictions.append(pred)
+    metrics = essay.grade(predictions)
+    return predictions, metrics

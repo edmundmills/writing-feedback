@@ -1,12 +1,6 @@
 name: ppo
 
-feature_extractor: SegmentAttention
-num_attention_layers: 2
-n_head: 6
-
-
-layer_size: 512
-n_layers: 1
+saved_model_name: 'copper-microwave-39_fold_0_copper-microwave-39'
 
 total_timesteps: 1e7
 n_steps: 128
@@ -14,7 +8,7 @@ batch_size: 512
 n_envs: 12
 lr: 1e-3
 epochs: 10
-
+target_kl: 0.05
 
 save_model: True
 sync_tensorboard: True

@@ -131,19 +131,20 @@ class Essay:
     
     def segment_labels_to_preds(self, seg_labels) -> List[Prediction]:
         preds = []
+        if len(seg_labels) == 0: return preds
         for idx, (seg_len, seg_label) in enumerate(seg_labels):
             if seg_len <= 0: continue
             if idx == 0:
                 cur_start = 0
                 cur_stop = seg_len
-                cur_label = seg_label if seg_label <= 8 else seg_label - 7
+                cur_label = seg_label if seg_label <= 7 else seg_label - 7
             elif cur_label != 0 and seg_label - 7 == cur_label:
                 cur_stop = cur_stop + seg_len
             else:
                 preds.append(Prediction(cur_start, cur_stop - 1, cur_label, self.essay_id))
                 cur_start = cur_stop
                 cur_stop = cur_start + seg_len
-                cur_label = seg_label if seg_label <= 8 else seg_label - 7
+                cur_label = seg_label if seg_label <= 7 else seg_label - 7
         preds.append(Prediction(cur_start, cur_stop - 1, cur_label, self.essay_id))
         return preds
 

@@ -8,10 +8,10 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
 from core.dataset import EssayDataset
-from core.predicter import Predicter
+from core.segmenter import Segmenter
 from utils.config import parse_args, get_config
 from utils.render import plot_ner_output, EssayRenderer
-
+from utils.postprocessing import assign_by_heuristics
 
 if __name__ == '__main__':
 
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     
     dataset = EssayDataset.load(args.baseline_ner_dataset_path)
     renderer = EssayRenderer()
-    predicter = Predicter(args.predict)
+    segmenter = Segmenter(args.seg)
 
 
     f_scores = []
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         if essay_id is not None:
             essay = dataset.get_by_id(essay_id)
         ner_probs = essay.ner_probs
-        segments, segment_lens = predicter.segment_ner_probs(ner_probs)
+        segments, segment_lens = segmenter.segment_ner_probs(ner_probs)
         if print_segments:
             text = essay.text_from_segments(segment_lens)
             for t in text:
@@ -56,7 +56,7 @@ if __name__ == '__main__':
             seg_labels = essay.get_labels_for_segments(segment_lens)
             preds = essay.segment_labels_to_preds(seg_labels)
         elif predictions == 'by_heuristics':
-            preds, _grade = predicter.by_heuristics(essay, thresholds=False)
+            preds, _grade = assign_by_heuristics(essay, thresholds=False)
         else:
             preds = None
         if score:

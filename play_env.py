@@ -31,8 +31,7 @@ if __name__ == '__main__':
     print(env.essay_id)
     done = False
     while not done:
-        print('Position: ', state['position'])
-        # plot_ner_output(state['ner_tokens'])
+        plot_ner_output(state)
         action = int(input('Action: '))
         # print(env.actions[action])
         state, reward, done, info = env.step(action)

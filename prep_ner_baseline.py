@@ -10,7 +10,7 @@ torch.cuda.manual_seed_all(0)
 
 from core.dataset import EssayDataset
 from utils.config import parse_args, get_config
-from core.predicter import Predicter
+from core.segmenter import Segmenter
 from utils.render import EssayRenderer
 
 filtered_tokens = set(['þ', '\x94', '¨', '\x91', '\x97'])
@@ -62,7 +62,7 @@ if __name__ == '__main__':
         samples = pickle.load(filename)
 
     renderer = EssayRenderer()
-    predicter = Predicter()
+    segmenter = Segmenter()
 
     ner_probs = {}
 

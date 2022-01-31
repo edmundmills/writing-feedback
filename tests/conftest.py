@@ -13,7 +13,7 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
 from core.dataset import EssayDataset
-from core.env import AssignmentEnv
+from core.env import JoinEnv
 from core.essay import Prediction
 from core.ner import NERTokenizer
 from utils.config import get_config
@@ -34,12 +34,12 @@ def base_args():
 
 @pytest.fixture
 def pred_args():
-    args = OmegaConf.load('conf/predict/attention.yaml')
+    args = OmegaConf.load('conf/predict/predicter.yaml')
     return args
 
 @pytest.fixture
 def seg_args():
-    args = OmegaConf.load('conf/seg/ppo.yaml')
+    args = OmegaConf.load('conf/seg/segmenter.yaml')
     return args
 
 @pytest.fixture
@@ -93,11 +93,6 @@ class NERModel:
         return torch.ones(1, encoded_essay_length, 15).float()
 
 @pytest.fixture
-def ner_probs():
-    dataset = EssayDataset.load('data/dataset_with_ner.pkl')
-    return next(iter(dataset.ner_probs.values()))
-
-@pytest.fixture
 def ner_tokenizer():
     ner_args = get_config('base').ner
     return NERTokenizer(ner_args)
@@ -141,21 +136,6 @@ def dataset_with_ner_probs():
     return dataset
 
 @pytest.fixture
-def assign_args():
-    args = get_config('base', args=['env=assignment'])
-    return args
-
-@pytest.fixture
-def assign_env():
-    args = get_config('base', args=['env=assignment'])
-    dataset = EssayDataset(n_essays=5)
-    with open('data/dataset_with_ner.pkl', 'rb') as saved_file:
-        full_dataset = pickle.load(saved_file)
-    dataset.copy_essays(full_dataset)
-    env = AssignmentEnv(dataset, args)
-    return env
-
-@pytest.fixture
 def join_args():
     args = get_config('base', args=['env=join'])
     return args
@@ -167,7 +147,7 @@ def join_env():
     with open('data/dataset_with_ner.pkl', 'rb') as saved_file:
         full_dataset = pickle.load(saved_file)
     dataset.copy_essays(full_dataset)
-    env = AssignmentEnv(dataset, args)
+    env = JoinEnv(dataset, args)
     return env
 
 

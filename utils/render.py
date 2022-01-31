@@ -39,6 +39,7 @@ def plot_ner_output(tensor, segment_lens:List[int]=None):
         ner_probs = tensor.squeeze().cpu().numpy()
     else:
         ner_probs = tensor
+    # ner_probs = ner_probs[0:1,...]
     ner_probs = ner_probs.T
     plt.imshow(ner_probs, cmap='hot', interpolation='nearest', aspect='auto',
                vmin=0, vmax=1)

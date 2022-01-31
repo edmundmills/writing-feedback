@@ -12,9 +12,7 @@ torch.cuda.manual_seed_all(0)
 
 
 from core.dataset import EssayDataset
-from core.ner import NERModel, NERTokenizer
 from utils.config import parse_args, get_config
-from utils.constants import ner_probs_path
 
 
 if __name__ == '__main__':
