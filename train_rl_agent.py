@@ -30,7 +30,7 @@ if __name__ == '__main__':
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     transformers.logging.set_verbosity_error()
 
-    ner_dataset = EssayDataset.load(args.ner_dataset_path)
+    ner_dataset = EssayDataset.load(args.segmented_dataset_path)
     if args.debug:
         dataset = EssayDataset(n_essays=2)
         dataset.copy_essays(ner_dataset)

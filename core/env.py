@@ -5,7 +5,6 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 
 from utils.constants import de_num_to_type, de_len_norm_factor
-from core.segmenter import Segmenter
 from utils.render import plot_ner_output
 
 env_classes = {}
@@ -48,7 +47,6 @@ class SegmentationEnv(gym.Env):
         self.max_d_elems = args.env.num_d_elems
         self.max_words = args.env.num_words
         self.essay = None
-        self.segmenter = Segmenter(args.seg)
 
     @property
     def essay_id(self):
@@ -90,10 +88,9 @@ class SegmentationEnv(gym.Env):
             self.essay = self.dataset.get_by_id(essay_id)
         self.done = False
         self.steps = 0
-        segmented_ner_probs, segment_lens = self.segmenter.segment_ner_probs(self.essay.ner_probs)
+        segmented_ner_probs, segment_lens, labels = self.essay.segments
         self.segment_lens = [seg_len for seg_len in segment_lens if seg_len != -1]
-        self.correct_labels = [label for _len, label
-                       in self.essay.get_labels_for_segments(self.segment_lens)]
+        self.correct_labels = labels
         segmented_ner_probs = segmented_ner_probs.squeeze(0).numpy()
         segmented_ner_probs[:,-1] /= de_len_norm_factor
         self.segmented_ner_probs = segmented_ner_probs
