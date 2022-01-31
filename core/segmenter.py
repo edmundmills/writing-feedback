@@ -66,11 +66,12 @@ class Segmenter:
 
         def concat_seg_data(seg_data):
             seg_len = len(seg_data)
-            start_probs = seg_data[0][:3,1:7]
+            # start_probs = seg_data[0][:1,1:8]
+            start_probs = torch.cat([seg_d[0:1,1:8] for seg_d in seg_data[0:3]], dim=0)
             start_probs = torch.sum(start_probs, dim=0, keepdim=True) / min(3, start_probs.size(0))
             seg_data = torch.cat(seg_data, dim=0)
             seg_data = torch.sum(seg_data, dim=0, keepdim=True) / seg_len
-            seg_data[:,1:7] = start_probs
+            seg_data[:,1:8] = start_probs
             seg_data = torch.cat((seg_data, torch.tensor(seg_len).reshape(1,1)), dim=-1)
             return seg_data
 
