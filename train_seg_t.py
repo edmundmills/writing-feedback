@@ -29,10 +29,8 @@ if __name__ == '__main__':
         dataset = EssayDataset(n_essays=20)
         dataset.copy_essays(ner_dataset)
         dataset.make_folds(2)
-        args.predict.print_interval = 10
-        args.predict.eval_interval = 10
-        args.predict.eval_samples = 5
-        args.predict.epochs = 10
+        args.seg_t.steps_per_epoch = 10
+        args.seg_t.eval_samples = 5
     else:
         dataset = ner_dataset
 

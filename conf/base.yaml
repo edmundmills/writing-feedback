@@ -6,6 +6,7 @@ defaults:
  - predict: predicter
  - seg_t: fine_tune
  - seg: segmenter
+ - t2: sentence_t
 
 
 name: base

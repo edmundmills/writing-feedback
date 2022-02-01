@@ -3,23 +3,32 @@ import itertools
 import random
 
 import numpy as np
-from sentence_transformers import SentenceTransformer, InputExample, losses, evaluation
+from sentence_transformers import SentenceTransformer, InputExample, losses, evaluation, models
 import torch
 import tqdm
 
 from core.dataset import SegmentTokens
 
 from utils.networks import Model
-from utils.constants import de_type_to_num, de_num_to_type
+from utils.constants import de_type_to_num, de_num_to_type, de_len_norm_factor
+from utils.render import plot_ner_output
+
 
 class SegmentTransformer(Model):
     def __init__(self, seg_t_args) -> None:
         super().__init__()
         print('Loading Sentence Transformer...')
-        self.model = SentenceTransformer('all-distilroberta-v1')
-        self.train_on_joins = seg_t_args.train_on_joins
-        self.train_on_classes = seg_t_args.train_on_classes
-        self.train_on_polarity = seg_t_args.train_on_polarity
+        sentence_t = SentenceTransformer('all-distilroberta-v1').modules()
+        _ = next(sentence_t)
+        transformer = next(sentence_t)
+        pooling = models.Pooling(transformer.get_word_embedding_dimension())
+        dense_model = models.Dense(in_features=pooling.get_sentence_embedding_dimension(),
+                                   out_features=seg_t_args.encoded_dim,
+                                   activation_function=torch.nn.Tanh())
+        self.model = SentenceTransformer(modules=[transformer,
+                                                  pooling,
+                                                  dense_model,
+                                                  models.Normalize()])
         print('Sentence Transformer Loaded')
 
     def make_join_dataset(self, essay_dataset):
@@ -64,7 +73,7 @@ class SegmentTransformer(Model):
                         [InputExample(texts=[t1, t2], label=1.0)
                          for t1, t2 in itertools.islice(combs, num_same)]
                     )
-                else:
+                elif len(de_types[other_de_type]) > 0 and len(de_types[de_type]) > 0:
                     segs = np.random.choice(range(len(de_types[de_type])),
                                             size=num_diff, replace=False)
                     others = np.random.choice(range(len(de_types[other_de_type])),
@@ -156,15 +165,16 @@ class SegmentTransformer(Model):
         encoded = self.model.encode(segments, convert_to_numpy=False, convert_to_tensor=True).cpu()
         attention_mask = torch.ones_like(encoded)
         encoded = torch.cat((encoded[:max_d_elems,:],
-                                    torch.ones(max_d_elems - num_segments, 768)))
+                                    -torch.ones(max_d_elems - num_segments, encoded.size(-1))))
         attention_mask = torch.cat((attention_mask[:max_d_elems,:],
-                                    torch.zeros(max_d_elems - num_segments, 768)))
+                                    torch.zeros(max_d_elems - num_segments, encoded.size(-1))))
         return encoded, attention_mask[...,0].bool()
 
     def tokenize_dataset(self, essay_dataset, max_d_elems=40):
         print('Tokenizing Dataset Segments...')
         for essay in tqdm.tqdm(essay_dataset):
-            _essay_ner_features, seg_lens, essay_labels = essay.segments
+            essay_ner_features, seg_lens, essay_labels = essay.segments
+            essay_ner_features[...,-1] /= de_len_norm_factor
             text = essay.text_from_segments(seg_lens, join=True)
             encoded, attention_mask = self.encode(text, max_d_elems)
             segment_tokens = SegmentTokens(encoded, attention_mask)
