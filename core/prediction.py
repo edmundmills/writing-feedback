@@ -8,10 +8,11 @@ import wandb
 
 from utils.constants import ner_num_to_token, de_len_norm_factor
 from utils.networks import Model, MLP, PositionalEncoder
+from utils.render import plot_ner_output
 
 
 class Predicter(Model):
-    def __init__(self, pred_args, saved_model_name=None):
+    def __init__(self, pred_args):
         super().__init__()
         self.num_outputs = len(ner_num_to_token)
         self.seq_len = pred_args.num_ner_segments
@@ -27,14 +28,18 @@ class Predicter(Model):
                           n_outputs=self.num_outputs,
                           n_layers=pred_args.num_linear_layers,
                           layer_size=pred_args.linear_layer_size).to(self.device)
-        if saved_model_name is not None:
-            print(f'Loading pretrained model from {saved_model_name}')
-            self.load(saved_model_name)
     
-    def forward(self, features):
-        y = self.positional_encoder(features)
-        y = self.attention(y)
+    def forward(self, features, plot_outputs=False):
+        # y = self.positional_encoder(features)
+        # print(features.shape)
+        if plot_outputs:
+            plot_ner_output(features[0])
+        y = self.attention(features)
+        if plot_outputs:
+            plot_ner_output(y[0])
         y = self.head(y)
+        if plot_outputs:
+            plot_ner_output(y[0])
         return y
 
     def make_ner_feature_dataset(self, essay_dataset):

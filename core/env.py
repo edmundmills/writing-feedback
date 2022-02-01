@@ -97,24 +97,24 @@ class SegmentationEnv(gym.Env):
         return self.state
         
     def step(self, action):
-        init_value_join = self.current_state_value(correct_preds=True)
+        # init_value_join = self.current_state_value(correct_preds=True)
         init_value_class = self.current_state_value(correct_preds=False)
         self.update_state(action)
-        value_join = self.current_state_value(correct_preds=True)
+        # value_join = self.current_state_value(correct_preds=True)
         value_class = self.current_state_value(correct_preds=False)
-        reward = (value_join - init_value_join + value_class - init_value_class) / 2
+        reward = (value_class - init_value_class)
         info = {}
         if self.done:
-            print('##############')
-            print(self.current_state_value(correct_preds=True))
-            for pred in self.essay.correct_predictions:
-                print(pred.start, pred.stop, pred.label)
-            for pred in self.predictions:
-                print(pred.start, pred.stop, pred.label)
+            # print('##############')
+            # print(self.current_state_value(correct_preds=True))
+            # for pred in self.essay.correct_predictions:
+            #     print(pred.start, pred.stop, pred.label)
+            # for pred in self.predictions:
+            #     print(pred.start, pred.stop, pred.label)
 
             score = self.current_state_value()
             info.update({'Score': score})
-            print(score)
+            # print(score)
         else:
             info.update({'Score': None})
         return self.state, reward, self.done, info
@@ -147,7 +147,8 @@ class JoinEnv(SegmentationEnv):
     @property
     def attention_mask(self):
         msk = np.zeros((self.max_d_elems, 1))
-        msk[len(self.pred_labels), ...] = 1
+        if len(self.pred_labels) < len(msk):
+            msk[len(self.pred_labels), ...] = 1
         return msk
 
     @property
@@ -165,6 +166,7 @@ class JoinEnv(SegmentationEnv):
 
     def update_state(self, action):
         self.pred_labels.append(int(action))
+        # print(action, self.correct_labels[len(self.pred_labels) - 1])
         if len(self.pred_labels) >= self.num_segments:
             self.done = True
 

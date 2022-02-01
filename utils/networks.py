@@ -27,6 +27,7 @@ class Model(nn.Module):
         print(f'Loading model from {model_file}')
         self.load_state_dict(torch.load(model_file))
         print('Model Loaded')
+        return self
 
     def make_dataloader(self, dataset, args):
         return torch.utils.data.DataLoader(dataset,
@@ -159,5 +160,5 @@ class PositionalEncoder(nn.Module):
             # make embeddings relatively larger
             x = x * math.sqrt(self.features)
             #add constant to embedding
-            x = x + self.pe
+            x = x + .01 * self.pe
         return x

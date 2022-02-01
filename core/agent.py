@@ -8,6 +8,8 @@ import torch.nn as nn
 import wandb
 
 from core.prediction import Predicter
+from utils.render import plot_ner_output
+
 
 
 class TransformerPolicyNet(nn.Module):
@@ -17,10 +19,11 @@ class TransformerPolicyNet(nn.Module):
                  last_layer_dim_pi=15,
                  last_layer_dim_vf=15) -> None:
         super().__init__()
+        self.args = args
         self.latent_dim_pi = last_layer_dim_pi
         self.latent_dim_vf = last_layer_dim_vf
-        self.policy_net = Predicter(args.predict, args.rl.saved_model_name)
-        self.value_net = Predicter(args.predict, args.rl.saved_model_name)
+        self.policy_net = Predicter(args.predict)
+        self.value_net = Predicter(args.predict)
 
     def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -30,11 +33,13 @@ class TransformerPolicyNet(nn.Module):
         features = features.reshape(-1, 40, 17)
         msk = features[...,-1].bool()
         features = features[...,:-1]
-        output_p = self.policy_net(features)[msk]
+        output_p = self.policy_net(features)
+        output_p = output_p[msk]
         output_v = self.value_net(features)[msk]
         return output_p, output_v
 
     def forward_actor(self, features: torch.Tensor) -> torch.Tensor:
+        # self.policy_net.load(self.args.rl.saved_model_name)
         features = features.reshape(-1, 40, 17)
         msk = features[...,-1].bool()
         features = features[...,:-1]
@@ -45,7 +50,7 @@ class TransformerPolicyNet(nn.Module):
         msk = features[...,-1].bool()
         features = features[...,:-1]
         return self.value_net(features)[msk]
-
+    
 
 class TransformerActorCriticPolicy(ActorCriticPolicy):
     def __init__(
@@ -54,7 +59,7 @@ class TransformerActorCriticPolicy(ActorCriticPolicy):
         action_space: gym.spaces.Space,
         lr_schedule: Callable[[float], float],
         net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
-        activation_fn: Type[nn.Module] = nn.Tanh,
+        activation_fn: Type[nn.Module] = None,
         *args,
         **kwargs,
     ):
@@ -75,6 +80,10 @@ class TransformerActorCriticPolicy(ActorCriticPolicy):
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = TransformerPolicyNet(self.features_dim, self.args)
 
+    def _build(self, *args, **kwargs) -> None:   
+        super()._build(*args, **kwargs)
+        self.action_net = nn.Sequential()  
+
 
 def make_agent(base_args, env):
     rl_args = base_args.rl
@@ -94,4 +103,7 @@ def make_agent(base_args, env):
             target_kl=rl_args.target_kl,
             policy_kwargs={'args': base_args}
         ))
-    return agent_cls(TransformerActorCriticPolicy, env, **agent_kwargs)
+    agent = agent_cls(TransformerActorCriticPolicy, env, **agent_kwargs)
+    agent.policy.mlp_extractor.policy_net.load(base_args.rl.saved_model_name)
+    agent.policy.mlp_extractor.value_net.load(base_args.rl.saved_model_name)
+    return agent
