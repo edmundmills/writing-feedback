@@ -1,8 +1,8 @@
-name: Attention
+name: SegmentTransformer
 
 num_ner_segments: 40
-
-feature_dim: 16
+use_seg_t_features: True
+feature_dim: 512
 num_attention_layers: 6
 n_head: 8
 num_linear_layers: 1
@@ -10,7 +10,7 @@ linear_layer_size: 512
 
 epochs: 50
 batch_size: 128
-learning_rate: 1e-3
+learning_rate: 3e-4
 
 print_interval: 100
 eval_interval: 200

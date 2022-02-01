@@ -11,6 +11,7 @@ torch.cuda.manual_seed_all(0)
 from core.dataset import EssayDataset
 from core.prediction import Predicter
 from core.segmenter import Segmenter
+from core.segment_transformer import SegmentTransformer
 from utils.config import parse_args, get_config, WandBRun
 
 
@@ -27,6 +28,9 @@ if __name__ == '__main__':
     else:
         ner_dataset = EssayDataset.load(args.segmented_dataset_path)
 
+    if args.predict.name == 'SegmentTransformer':
+        ner_dataset = EssayDataset.load(args.tokenized_dataset_path)
+
     if args.debug:
         dataset = EssayDataset(n_essays=20)
         dataset.copy_essays(ner_dataset)
@@ -34,7 +38,7 @@ if __name__ == '__main__':
         args.predict.print_interval = 10
         args.predict.eval_interval = 10
         args.predict.eval_samples = 5
-        args.predict.epochs = 10
+        args.predict.epochs = 20
     else:
         dataset = ner_dataset
 
@@ -46,8 +50,8 @@ if __name__ == '__main__':
             print(f'Starting training on fold {fold}')
             train, val = dataset.get_fold(fold)
             predicter = Predicter(args.predict)
-            train = predicter.make_ner_feature_dataset(train)
-            val = predicter.make_ner_feature_dataset(val)
+            train = predicter.make_dataset(train, args)
+            val = predicter.make_dataset(val, args)
             print(f'Training dataset size: {len(train)}')
             print(f'Validation dataset size: {len(val)}')
 

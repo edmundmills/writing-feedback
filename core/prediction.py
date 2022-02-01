@@ -42,15 +42,22 @@ class Predicter(Model):
             plot_ner_output(y[0])
         return y
 
-    def make_ner_feature_dataset(self, essay_dataset):
+    def make_dataset(self, essay_dataset, args):
         print('Making NER Feature Dataset...')
+        if args.predict.use_seg_t_features:
+            print('Using Segment Transformer Features')
         features = []
         labels = []
         attention_masks = []
         for essay in tqdm.tqdm(essay_dataset):
             ner_features, _seg_lens, essay_labels = essay.segments
-            ner_features[...,-1] /= de_len_norm_factor
-            attention_mask = (ner_features[...,0] != -1)
+            if args.predict.use_seg_t_features:
+                seg_t_features, attention_mask = essay.segment_tokens
+                ner_features = seg_t_features.unsqueeze(0)
+                attention_mask = attention_mask.unsqueeze(0)
+            else:
+                ner_features[...,-1] /= de_len_norm_factor
+                attention_mask = (ner_features[...,0] != -1)
             attention_masks.append(attention_mask.bool())
             features.append(ner_features)
             labels.append(essay_labels)
@@ -80,6 +87,10 @@ class Predicter(Model):
                 'Probs': probs,
                 'Preds': preds,
                 'Labels': labels,
+            })
+        else:
+            metrics.update({
+                'Train Loss': loss.item()
             })
         return loss, metrics
 
