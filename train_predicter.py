@@ -46,7 +46,7 @@ if __name__ == '__main__':
     first_run_name = None
 
     for fold in dataset.folds:
-        with WandBRun(args, project_name='predicter'):
+        with WandBRun(args, project_name='classifier'):
             print(f'Starting training on fold {fold}')
             train, val = dataset.get_fold(fold)
             predicter = Predicter(args.predict)

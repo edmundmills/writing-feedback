@@ -1,4 +1,5 @@
 import numpy as np
+from transformers import RobertaModel
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,17 +29,22 @@ class Predicter(Model):
         self.positional_encoder = PositionalEncoder(features=pred_args.intermediate_layer_size,
                                                     seq_len=self.seq_len,
                                                     device=self.device)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=pred_args.intermediate_layer_size,
-                                                   nhead=pred_args.n_head,
-                                                   batch_first=True)
-        self.attention = nn.TransformerEncoder(encoder_layer,
-                                               pred_args.num_attention_layers).to(self.device)
+        if pred_args.use_roberta:
+            self.roberta = True
+            self.attention = RobertaModel.from_pretrained("roberta-base").to(self.device)
+        else:
+            self.roberta = False
+            encoder_layer = nn.TransformerEncoderLayer(d_model=pred_args.intermediate_layer_size,
+                                                       nhead=pred_args.n_head,
+                                                       batch_first=True)
+            self.attention = nn.TransformerEncoder(encoder_layer,
+                                                pred_args.num_attention_layers).to(self.device)
         self.head = MLP(n_inputs=pred_args.intermediate_layer_size,
                         n_outputs=self.num_outputs,
                         n_layers=1,
                         layer_size=None).to(self.device)
     
-    def forward(self, features, plot_outputs=False):
+    def forward(self, features, attention_mask, plot_outputs=False):
         y = features
         # y = self.positional_encoder(y)
         # print(features.shape)
@@ -47,7 +53,11 @@ class Predicter(Model):
         y = self.linear(y)
         if plot_outputs:
             plot_ner_output(y[0])
-        y = self.attention(y)
+        if self.roberta:
+            output = self.attention(inputs_embeds=y, attention_mask=attention_mask)
+            y = output['last_hidden_state']
+        else:
+            y = self.attention(y)
         if plot_outputs:
             plot_ner_output(y[0])
         y = self.head(y)
@@ -87,7 +97,7 @@ class Predicter(Model):
         ner_features = ner_features.to(self.device)
         attention_mask = attention_mask.to(self.device)
         labels = labels.to(self.device)
-        output = self(ner_features)
+        output = self(ner_features, attention_mask)
         output = output[attention_mask]
         labels = labels[attention_mask].squeeze()
         if self.two_headed:
@@ -143,14 +153,14 @@ class Predicter(Model):
         def flatten_list(nested_list):
             return np.array([item for sublist in nested_list for item in sublist])
 
-        def calculate_metrics(loss, preds, labels):
+        def calculate_metrics(loss, preds, labels, class_names):
             avg_loss = sum(loss) / len(loss)
             correct = np.equal(preds, labels)
             avg_acc = sum(correct) / len(correct)            
             seg_confusion_matrix = wandb.plot.confusion_matrix(
                 y_true=labels,
                 preds=preds,
-                class_names=ner_num_to_token)
+                class_names=class_names)
             metrics = {'Eval Loss': avg_loss,
                        'Eval Accuracy': avg_acc,
                        'Confusion Matrix': seg_confusion_matrix}
@@ -163,14 +173,14 @@ class Predicter(Model):
             class_preds = flatten_list(metrics['Class Preds'])
             class_labels = flatten_list(metrics['Class Labels'])
             seg_metrics = calculate_metrics(metrics['Segmentation/Eval Loss'],
-                                            seg_preds, seg_labels)
+                                            seg_preds, seg_labels, ['Continue', 'Start'])
             class_metrics = calculate_metrics(metrics['Classification/Eval Loss'],
-                                            class_preds, class_labels)
+                                            class_preds, class_labels, de_num_to_type)
             eval_metrics.update({f'Segmentation/{k}': v for k, v in seg_metrics.items()})
             eval_metrics.update({f'Classification/{k}': v for k, v in class_metrics.items()})
         else:
             preds = flatten_list(metrics['Preds'])
             labels = flatten_list(metrics['Labels'])
-            metrics = calculate_metrics(metrics['Eval Loss'], preds, labels)
+            metrics = calculate_metrics(metrics['Eval Loss'], preds, labels, ner_num_to_token)
             eval_metrics.update({f'NER/{k}': v for k, v in metrics.items()})
         return eval_metrics

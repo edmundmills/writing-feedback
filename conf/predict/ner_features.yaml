@@ -13,6 +13,7 @@ feature_dim: 16
 num_linear_layers: 0
 linear_layer_size: 512
 intermediate_layer_size: 16
+use_roberta: False
 num_attention_layers: 6
 n_head: 8
 separate_seg_and_class_heads: False
