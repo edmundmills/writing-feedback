@@ -18,17 +18,7 @@ class SegmentTransformer(Model):
     def __init__(self, seg_t_args) -> None:
         super().__init__()
         print('Loading Sentence Transformer...')
-        sentence_t = SentenceTransformer('all-distilroberta-v1').modules()
-        _ = next(sentence_t)
-        transformer = next(sentence_t)
-        pooling = models.Pooling(transformer.get_word_embedding_dimension())
-        dense_model = models.Dense(in_features=pooling.get_sentence_embedding_dimension(),
-                                   out_features=seg_t_args.encoded_dim,
-                                   activation_function=torch.nn.Tanh())
-        self.model = SentenceTransformer(modules=[transformer,
-                                                  pooling,
-                                                  dense_model,
-                                                  models.Normalize()])
+        self.model = SentenceTransformer('all-distilroberta-v1')
         print('Sentence Transformer Loaded')
 
     def make_join_dataset(self, essay_dataset):

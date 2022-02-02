@@ -34,7 +34,7 @@ def base_args():
 
 @pytest.fixture
 def pred_args():
-    args = OmegaConf.load('conf/predict/predicter.yaml')
+    args = OmegaConf.load('conf/predict/ner_features.yaml')
     return args
 
 @pytest.fixture
@@ -74,6 +74,13 @@ def prediction():
 def dataset_with_segments():
     dataset = EssayDataset(n_essays=5)
     full_dataset = EssayDataset.load('data/segmented_dataset.pkl')
+    dataset.copy_essays(full_dataset)
+    return dataset
+
+@pytest.fixture
+def tokenized_dataset():
+    dataset = EssayDataset(n_essays=5)
+    full_dataset = EssayDataset.load('data/tokenized_dataset.pkl')
     dataset.copy_essays(full_dataset)
     return dataset
 

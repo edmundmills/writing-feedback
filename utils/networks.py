@@ -117,7 +117,9 @@ class MLP(nn.Module):
     def __init__(self, n_inputs, n_outputs, n_layers, layer_size,
                  output_mod=None, dropout:float=None):
         super().__init__()
-        if n_layers == 1:
+        if n_layers == 0:
+            layers = []
+        elif n_layers == 1:
                 layers = [nn.Linear(n_inputs, n_outputs)]
         else:
             layers = [
