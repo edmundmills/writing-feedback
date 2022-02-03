@@ -25,11 +25,12 @@ if __name__ == '__main__':
         ner_dataset = segmenter.segment_essay_dataset(ner_dataset, print_avg_grade=True)
         if args.predict.save_ner_features and not args.debug:
             ner_dataset.save(args.segmented_dataset_path)
+    elif args.predict.use_combined_features:
+        ner_dataset = EssayDataset.load(args.combined_features_dataset_path)
+    elif args.predict.use_seg_t_features:
+        ner_dataset = EssayDataset.load(args.tokenized_dataset_path)
     else:
         ner_dataset = EssayDataset.load(args.segmented_dataset_path)
-
-    if args.predict.name == 'SegmentTransformer':
-        ner_dataset = EssayDataset.load(args.tokenized_dataset_path)
 
     if args.debug:
         dataset = EssayDataset(n_essays=20)
@@ -50,14 +51,21 @@ if __name__ == '__main__':
             print(f'Starting training on fold {fold}')
             train, val = dataset.get_fold(fold)
             predicter = Predicter(args.predict)
-            train = predicter.make_dataset(train, args)
-            val = predicter.make_dataset(val, args)
-            print(f'Training dataset size: {len(train)}')
-            print(f'Validation dataset size: {len(val)}')
+            train_tensor = predicter.make_dataset(train, args)
+            val_tensor = predicter.make_dataset(val, args)
+            print(f'Training dataset size: {len(train_tensor)}')
+            print(f'Validation dataset size: {len(val_tensor)}')
 
             run_name = wandb.run.name if args.wandb else 'test'
             first_run_name = first_run_name or run_name
-            predicter.learn(train, val, args.predict)
+            predicter.learn(train_tensor, val_tensor, args.predict)
+            if args.predict.save_output_features:
+                val = predicter.infer_on_dataset(val, args)
+                dataset.copy_essays(val)
+
             if args.ner.save_model:
                 model_name = f'{first_run_name}_fold_{fold}_{wandb.run.name}' if args.wandb else 'test'
                 predicter.save(model_name)
+
+    if args.predict.save_output_features:
+        dataset.save(args.combined_features_dataset_path)

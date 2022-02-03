@@ -3,10 +3,12 @@ name: SegmentTransformer
 # Data
 load_ner_features: True
 save_ner_features: False
+save_output_features: True
 
 # Features
 num_ner_segments: 40
 use_seg_t_features: True
+use_combined_features: False
 
 # Arch
 feature_dim: 768
@@ -16,10 +18,10 @@ intermediate_layer_size: 768
 use_roberta: True
 num_attention_layers: 6
 n_head: 8
-separate_seg_and_class_heads: False
+separate_seg_and_class_heads: True
 
 # Training
-epochs: 50
+epochs: 17
 batch_size: 128
 learning_rate: 3e-5
 

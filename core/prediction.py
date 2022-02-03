@@ -3,9 +3,10 @@ from transformers import RobertaModel
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import TensorDataset
+from torch.utils.data import TensorDataset, DataLoader
 import tqdm
 import wandb
+from core.dataset import SegmentTokens
 
 from utils.constants import ner_num_to_token, de_len_norm_factor, de_num_to_type
 from utils.networks import Model, MLP, PositionalEncoder
@@ -65,6 +66,26 @@ class Predicter(Model):
             plot_ner_output(y[0])
         return y
 
+    def infer_on_dataset(self, essay_dataset, args):
+        print('Doing inference on dataset')
+        for essay in tqdm.tqdm(essay_dataset):
+            ner_features, _seg_lens, essay_labels = essay.segments
+            if args.predict.use_seg_t_features:
+                seg_t_features, attention_mask = essay.segment_tokens
+                ner_features = seg_t_features.unsqueeze(0)
+                attention_mask = attention_mask.unsqueeze(0)
+            else:
+                ner_features[...,-1] /= de_len_norm_factor
+                attention_mask = (ner_features[...,0] != -1)
+            with torch.no_grad():
+                output = self(ner_features.to(self.device),
+                              attention_mask.to(self.device)).detach().cpu()
+            essay_dataset.essays[essay.essay_id]['segment_features'] = SegmentTokens(output,
+                                                                                     attention_mask)
+        print('Inference complete')
+        return essay_dataset
+
+
     def make_dataset(self, essay_dataset, args):
         print('Making NER Feature Dataset...')
         if args.predict.use_seg_t_features:
@@ -74,7 +95,10 @@ class Predicter(Model):
         attention_masks = []
         for essay in tqdm.tqdm(essay_dataset):
             ner_features, _seg_lens, essay_labels = essay.segments
-            if args.predict.use_seg_t_features:
+            if args.predict.use_combined_features:
+                seg_features, attention_mask = essay.segment_features
+                ner_features = torch.cat((ner_features, seg_features), dim=-1)
+            elif args.predict.use_seg_t_features:
                 seg_t_features, attention_mask = essay.segment_tokens
                 ner_features = seg_t_features.unsqueeze(0)
                 attention_mask = attention_mask.unsqueeze(0)

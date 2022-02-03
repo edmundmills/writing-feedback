@@ -15,6 +15,7 @@ ner_dataset_path: 'data/dataset_with_ner.pkl'
 baseline_ner_dataset_path: 'data/baseline_ner_dataset.pkl'
 segmented_dataset_path: 'data/segmented_dataset.pkl'
 tokenized_dataset_path: 'data/seg_t_tokenized_dataset.pkl'
+combined_features_dataset_path: 'data/combined_features_dataset.pkl'
 ner_model_name: lemon-dream-5
 
 debug: False
